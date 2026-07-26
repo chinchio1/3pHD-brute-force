@@ -88,11 +88,11 @@
   }
   #resultMeta{ color:var(--muted); font-size:11px; }
   .heatmap-grid{ display:grid; grid-template-columns:1fr; gap:16px; }
-  .heatmap-block canvas{ width:100%; height:auto; border-radius:8px; border:1px solid var(--line); background:#000; }
+  .heatmap-block canvas{ width:100%; height:auto; border-radius:8px; border:1px solid var(--line); background:#fff; }
   .legend-bar{ display:flex; align-items:center; gap:8px; margin-top:6px; font-size:11px; color:var(--muted); }
   .legend-bar .swatch{ width:120px; height:10px; border-radius:4px; }
-  .grad-swatch{ background:linear-gradient(90deg,var(--neg),#0b0e14,var(--pos)); }
-  .sign-swatch{ background:linear-gradient(90deg,var(--neg) 0%,var(--neg) 48%,#333 50%,var(--pos) 52%,var(--pos) 100%); }
+  .grad-swatch{ background:linear-gradient(90deg,var(--neg),#ffffff,var(--pos)); border:1px solid var(--line); }
+  .sign-swatch{ background:linear-gradient(90deg,var(--neg) 0%,var(--neg) 48%,#eeeeee 50%,var(--pos) 52%,var(--pos) 100%); border:1px solid var(--line); }
   footer{ padding:14px 24px; color:var(--muted); font-size:11px; border-top:1px solid var(--line); }
   a{ color:var(--accent); }
 </style>
@@ -134,7 +134,7 @@
           <div><label>Lambda sign</label>
             <select id="p1lambda"><option value="1">+</option><option value="0">×</option></select>
           </div>
-          <div><label>Modulus m_f1</label>
+          <div><label>Frequency of GW1</label>
             <input type="number" step="0.01" id="p1m" value="1">
           </div>
         </div>
@@ -152,7 +152,7 @@
           <div><label>Lambda sign</label>
             <select id="p2lambda"><option value="1">+</option><option value="0">×</option></select>
           </div>
-          <div><label>Modulus m_f2</label>
+          <div><label>Frequency of GW2</label>
             <input type="number" step="0.01" id="p2m" value="1">
           </div>
         </div>
@@ -170,7 +170,7 @@
           <div><label>Lambda sign</label>
             <select id="p3lambda"><option value="1">+</option><option value="0">×</option></select>
           </div>
-          <div><label>Modulus m_f3</label>
+          <div><label>Frequency of GW3</label>
             <input type="number" step="0.01" id="p3m" value="1">
           </div>
         </div>
@@ -182,8 +182,13 @@
       <div class="row2">
         <div>
           <label>n_side (HEALPix pixels = 12·n_side²)</label>
-          <input type="number" id="nside" value="8" min="1" step="1">
-          <div class="field-note">rounded to the nearest power of 2 · npix shown below</div>
+          <select id="nside">
+            <option value="4">4 (192 px)</option>
+            <option value="8" selected>8 (768 px)</option>
+            <option value="16">16 (3072 px)</option>
+            <option value="32">32 (12288 px)</option>
+            <option value="64">64 (49152 px, slow)</option>
+          </select>
         </div>
         <div>
           <label>n_attorno (rotations per pixel)</label>
@@ -191,7 +196,6 @@
           <div class="field-note">any value you like — larger is slower</div>
         </div>
       </div>
-      <div class="field-note" id="npixNote" style="margin-top:6px;">npix = 768</div>
       <button id="calcBtn" style="margin-top:14px;">Compute integral</button>
       <progress id="prog" value="0" max="1" style="display:none;"></progress>
     </div>
@@ -209,14 +213,14 @@
       <h2>HEALPix maps (Mollweide projection)</h2>
       <div class="heatmap-grid">
         <div class="heatmap-block">
-          <label>Intensity gradient (blue → black → red, scaled to max|value|)</label>
+          <label>Intensity gradient (blue → white → red, scaled to max|value|)</label>
           <canvas id="canvasGrad" width="900" height="450"></canvas>
-          <div class="legend-bar"><span>min</span><span class="swatch grad-swatch"></span><span>max</span></div>
+          <div class="legend-bar"><span id="legendMin">—</span><span class="swatch grad-swatch"></span><span id="legendMax">—</span></div>
         </div>
         <div class="heatmap-block">
           <label>Sign of the value (blue = negative, red = positive)</label>
           <canvas id="canvasSign" width="900" height="450"></canvas>
-          <div class="legend-bar"><span>−</span><span class="swatch sign-swatch"></span><span>+</span></div>
+          <div class="legend-bar"><span id="legendSignMin">—</span><span class="swatch sign-swatch"></span><span id="legendSignMax">—</span></div>
         </div>
       </div>
     </div>
@@ -473,25 +477,25 @@ function mollweideXY(theta, phi){
   return [x, y]; // x in [-2*sqrt2, 2*sqrt2], y in [-sqrt2, sqrt2]
 }
 
-function colorGradient(t){ // t in [-1,1] -> blue..black..red
+function colorGradient(t){ // t in [-1,1] -> blue..white..red
   t = Math.max(-1, Math.min(1, t));
   if (t >= 0){
-    const r = Math.round(255*t);
-    return `rgb(${r},0,0)`;
+    const g = Math.round(255*(1-t));
+    return `rgb(255,${g},${g})`;
   } else {
-    const b = Math.round(255*(-t));
-    return `rgb(0,0,${b})`;
+    const g = Math.round(255*(1+t));
+    return `rgb(${g},${g},255)`;
   }
 }
 function colorSign(v){
-  if (Math.abs(v) < 1e-12) return 'rgb(60,60,70)';
-  return v > 0 ? 'rgb(255,92,92)' : 'rgb(79,124,255)';
+  if (Math.abs(v) < 1e-12) return 'rgb(225,225,230)';
+  return v > 0 ? 'rgb(230,40,40)' : 'rgb(40,90,230)';
 }
 
 function drawHeatmap(canvas, thetas, phis, heatmap, mode){
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
-  ctx.fillStyle = '#000';
+  ctx.fillStyle = '#fff';
   ctx.fillRect(0,0,W,H);
   let maxAbs = 1e-12;
   for (let i=0;i<heatmap.length;i++) maxAbs = Math.max(maxAbs, Math.abs(heatmap[i]));
@@ -505,6 +509,7 @@ function drawHeatmap(canvas, thetas, phis, heatmap, mode){
     ctx.arc(px, py, r, 0, 2*Math.PI);
     ctx.fill();
   }
+  return maxAbs;
 }
 
 // ============================================================
@@ -516,19 +521,12 @@ const resultBox = document.getElementById('resultBox');
 const resultMeta = document.getElementById('resultMeta');
 const canvasGrad = document.getElementById('canvasGrad');
 const canvasSign = document.getElementById('canvasSign');
-const nsideInput = document.getElementById('nside');
-const npixNote = document.getElementById('npixNote');
+const legendMin = document.getElementById('legendMin');
+const legendMax = document.getElementById('legendMax');
+const legendSignMin = document.getElementById('legendSignMin');
+const legendSignMax = document.getElementById('legendSignMax');
 
-function nearestPow2(v){
-  v = Math.max(1, Math.round(v));
-  return Math.pow(2, Math.round(Math.log2(v)));
-}
-function updateNpixNote(){
-  const n = nearestPow2(parseFloat(nsideInput.value) || 8);
-  npixNote.textContent = `npix = ${12*n*n} (n_side snapped to ${n})`;
-}
-nsideInput.addEventListener('input', updateNpixNote);
-updateNpixNote();
+function fmt(v){ return v.toExponential(3); }
 
 calcBtn.addEventListener('click', async ()=>{
   calcBtn.disabled = true;
@@ -536,7 +534,7 @@ calcBtn.addEventListener('click', async ()=>{
   prog.value = 0;
   resultMeta.textContent = 'computing…';
 
-  const nside = nearestPow2(parseFloat(nsideInput.value) || 8);
+  const nside = parseInt(document.getElementById('nside').value, 10);
   const nAttorno = Math.max(1, Math.round(parseFloat(document.getElementById('nattorno').value) || 200));
 
   const p1 = readPoint(0), p2 = readPoint(1), p3 = readPoint(2);
@@ -556,6 +554,14 @@ calcBtn.addEventListener('click', async ()=>{
     const dt = ((performance.now()-t0)/1000).toFixed(2);
     resultBox.textContent = result.toExponential(6);
     resultMeta.textContent = `n_side=${nside} · npix=${npix} · n_attorno=${nAttorno} · time ${dt}s`;
+
+    let vmin = Infinity, vmax = -Infinity;
+    for (let i=0;i<heatmap.length;i++){ if (heatmap[i]<vmin) vmin=heatmap[i]; if (heatmap[i]>vmax) vmax=heatmap[i]; }
+    legendMin.textContent = fmt(vmin);
+    legendMax.textContent = fmt(vmax);
+    legendSignMin.textContent = fmt(vmin);
+    legendSignMax.textContent = fmt(vmax);
+
     drawHeatmap(canvasGrad, thetas, phis, heatmap, 'grad');
     drawHeatmap(canvasSign, thetas, phis, heatmap, 'sign');
   } catch(err){
