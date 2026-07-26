@@ -218,7 +218,7 @@
           <div class="legend-bar"><span id="legendMin">—</span><span class="swatch grad-swatch"></span><span id="legendMax">—</span></div>
         </div>
         <div class="heatmap-block">
-          <label>Sign of the value (blue = negative, red = positive)</label>
+          <label>Sign map (−1 = blue, +1 = red)</label>
           <canvas id="canvasSign" width="900" height="450"></canvas>
           <div class="legend-bar"><span id="legendSignMin">—</span><span class="swatch sign-swatch"></span><span id="legendSignMax">—</span></div>
         </div>
@@ -477,25 +477,34 @@ function mollweideXY(theta, phi){
   return [x, y]; // x in [-2*sqrt2, 2*sqrt2], y in [-sqrt2, sqrt2]
 }
 
-function colorGradient(t){ // t in [-1,1] -> blue..red, linear blend, no white midpoint
-  t = Math.max(-1, Math.min(1, t));
-  const f = (t+1)/2; // 0 = full blue, 1 = full red
-  const blue = [60,90,255], red = [255,60,60];
-  const r = Math.round(blue[0] + (red[0]-blue[0])*f);
-  const g = Math.round(blue[1] + (red[1]-blue[1])*f);
-  const b = Math.round(blue[2] + (red[2]-blue[2])*f);
-  return `rgb(${r},${g},${b})`;
+function colorGradient(t){   // t in [-1,1]
+    t = Math.max(-1, Math.min(1, t));
+
+    const blue = [40,80,255];
+    const red  = [255,40,40];
+
+    const a = (t + 1.0) * 0.5;
+
+    const r = Math.round(blue[0] + a*(red[0]-blue[0]));
+    const g = Math.round(blue[1] + a*(red[1]-blue[1]));
+    const b = Math.round(blue[2] + a*(red[2]-blue[2]));
+
+    return `rgb(${r},${g},${b})`;
 }
 function colorSign(v){
-  if (Math.abs(v) < 1e-12) return 'rgb(90,90,100)';
-  return v > 0 ? 'rgb(255,60,60)' : 'rgb(60,90,255)';
-}
 
+    if(v > 0) return "rgb(255,40,40)";
+    if(v < 0) return "rgb(40,80,255)";
+
+    return "rgb(0,0,0)";
+}
 function drawHeatmap(canvas, thetas, phis, heatmap, mode){
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0,0,W,H);
+ctx.clearRect(0,0,W,H);
+
+ctx.fillStyle = "black";
+ctx.fillRect(0,0,W,H);
   let maxAbs = 1e-12;
   for (let i=0;i<heatmap.length;i++) maxAbs = Math.max(maxAbs, Math.abs(heatmap[i]));
   const r = Math.max(1.6, Math.round(W/220));
