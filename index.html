@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Triangolo sulla Sfera — Integrale HEALPix</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0b0e14;
+    --panel: #12161f;
+    --panel-2: #171c27;
+    --line: #232a38;
+    --text: #dfe4ee;
+    --muted: #7c869c;
+    --accent: #5ee6c8;
+    --accent-2: #ff8a5c;
+    --p1: #ff5c7a;
+    --p2: #5ec8ff;
+    --p3: #ffd25e;
+    --neg: #4f7cff;
+    --pos: #ff5c5c;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'IBM Plex Mono', monospace; font-size:13px;
+    display:flex; flex-direction:column; min-height:100vh;
+  }
+  header{
+    padding:18px 24px; border-bottom:1px solid var(--line);
+    display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;
+  }
+  header h1{
+    font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:20px;
+    margin:0; letter-spacing:0.3px;
+  }
+  header span.sub{ color:var(--muted); font-size:12px; }
+  main{
+    flex:1; display:grid; grid-template-columns: 380px 1fr; gap:16px;
+    padding:16px 24px 32px;
+  }
+  @media (max-width: 980px){ main{ grid-template-columns: 1fr; } }
+  .panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:16px;
+  }
+  .panel + .panel{ margin-top:16px; }
+  h2{
+    font-family:'Space Grotesk', sans-serif; font-size:13px; text-transform:uppercase;
+    letter-spacing:1px; color:var(--accent); margin:0 0 12px;
+  }
+  .point-row{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .dot{ width:10px; height:10px; border-radius:50%; flex:none; }
+  .dot.p1{background:var(--p1);} .dot.p2{background:var(--p2);} .dot.p3{background:var(--p3);}
+  label{ display:block; color:var(--muted); font-size:11px; margin:6px 0 3px; }
+  input[type=number], select{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    padding:6px 8px; border-radius:6px; font-family:inherit; font-size:12px;
+  }
+  .row3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  fieldset{
+    border:1px solid var(--line); border-radius:8px; padding:10px 10px 4px; margin:0 0 10px;
+  }
+  legend{ padding:0 6px; color:var(--text); font-size:12px; display:flex; align-items:center; gap:6px;}
+  .radio-select{ display:flex; gap:6px; margin-bottom:8px; }
+  .radio-select label{
+    margin:0; flex:1; text-align:center; padding:6px 4px; border:1px solid var(--line);
+    border-radius:6px; cursor:pointer; color:var(--muted); font-size:11px;
+  }
+  .radio-select input{ display:none; }
+  .radio-select input:checked + label{ border-color:var(--accent); color:var(--accent); }
+  button{
+    width:100%; background:var(--accent); color:#06110d; border:none; border-radius:8px;
+    padding:11px; font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:13px;
+    cursor:pointer; letter-spacing:0.3px;
+  }
+  button:disabled{ background:var(--line); color:var(--muted); cursor:progress; }
+  button.secondary{ background:transparent; border:1px solid var(--line); color:var(--muted); margin-top:8px; }
+  #canvas3d-wrap{ height:340px; border-radius:8px; overflow:hidden; border:1px solid var(--line); position:relative; }
+  #canvas3d-wrap canvas{ display:block; width:100%; height:100%; }
+  .hint{ position:absolute; bottom:6px; left:8px; color:var(--muted); font-size:10px; pointer-events:none; }
+  progress{ width:100%; height:8px; accent-color:var(--accent); margin-top:10px; }
+  #resultBox{
+    font-family:'Space Grotesk', sans-serif; font-size:26px; font-weight:700; color:var(--accent);
+    margin:4px 0 2px;
+  }
+  #resultMeta{ color:var(--muted); font-size:11px; }
+  .heatmap-grid{ display:grid; grid-template-columns:1fr; gap:16px; }
+  .heatmap-block canvas{ width:100%; height:auto; border-radius:8px; border:1px solid var(--line); background:#000; }
+  .legend-bar{ display:flex; align-items:center; gap:8px; margin-top:6px; font-size:11px; color:var(--muted); }
+  .legend-bar .swatch{ width:120px; height:10px; border-radius:4px; }
+  .grad-swatch{ background:linear-gradient(90deg,var(--neg),#0b0e14,var(--pos)); }
+  .sign-swatch{ background:linear-gradient(90deg,var(--neg) 0%,var(--neg) 48%,#333 50%,var(--pos) 52%,var(--pos) 100%); }
+  footer{ padding:14px 24px; color:var(--muted); font-size:11px; border-top:1px solid var(--line); }
+  a{ color:var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Triangolo sulla Sfera</h1>
+  <span class="sub">integrale HEALPix del prodotto di tre funzioni di forma — porting web di brute_force_5.cpp</span>
+</header>
+
+<main>
+  <!-- COLONNA SINISTRA: input -->
+  <div>
+    <div class="panel">
+      <h2>Sfera di input</h2>
+      <div id="canvas3d-wrap">
+        <span class="hint">trascina per ruotare · clicca sulla sfera per posizionare il punto attivo</span>
+      </div>
+      <div class="radio-select" id="activePointSelect">
+        <input type="radio" name="active" id="act-p1" value="0" checked><label for="act-p1" style="color:var(--p1)">P1 attivo</label>
+        <input type="radio" name="active" id="act-p2" value="1"><label for="act-p2" style="color:var(--p2)">P2 attivo</label>
+        <input type="radio" name="active" id="act-p3" value="2"><label for="act-p3" style="color:var(--p3)">P3 attivo</label>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Punti del triangolo</h2>
+
+      <fieldset>
+        <legend><span class="dot p1"></span> P1</legend>
+        <label>Vettore (x, y, z) — direzione, viene normalizzato</label>
+        <div class="row3">
+          <input type="number" step="0.01" id="p1x" value="0">
+          <input type="number" step="0.01" id="p1y" value="0">
+          <input type="number" step="0.01" id="p1z" value="1">
+        </div>
+        <div class="row2">
+          <div><label>Segno lambda</label>
+            <select id="p1lambda"><option value="1">+</option><option value="0">−</option></select>
+          </div>
+          <div><label>Modulo m_f1</label>
+            <input type="number" step="0.01" id="p1m" value="1">
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend><span class="dot p2"></span> P2</legend>
+        <label>Vettore (x, y, z) — direzione, viene normalizzato</label>
+        <div class="row3">
+          <input type="number" step="0.01" id="p2x" value="1">
+          <input type="number" step="0.01" id="p2y" value="0">
+          <input type="number" step="0.01" id="p2z" value="0">
+        </div>
+        <div class="row2">
+          <div><label>Segno lambda</label>
+            <select id="p2lambda"><option value="1">+</option><option value="0">−</option></select>
+          </div>
+          <div><label>Modulo m_f2</label>
+            <input type="number" step="0.01" id="p2m" value="1">
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend><span class="dot p3"></span> P3</legend>
+        <label>Vettore (x, y, z) — direzione, viene normalizzato</label>
+        <div class="row3">
+          <input type="number" step="0.01" id="p3x" value="0">
+          <input type="number" step="0.01" id="p3y" value="1">
+          <input type="number" step="0.01" id="p3z" value="0">
+        </div>
+        <div class="row2">
+          <div><label>Segno lambda</label>
+            <select id="p3lambda"><option value="1">+</option><option value="0">−</option></select>
+          </div>
+          <div><label>Modulo m_f3</label>
+            <input type="number" step="0.01" id="p3m" value="1">
+          </div>
+        </div>
+      </fieldset>
+    </div>
+
+    <div class="panel">
+      <h2>Parametri di calcolo</h2>
+      <div class="row2">
+        <div>
+          <label>n_side (pixel HEALPix = 12·n_side²)</label>
+          <select id="nside">
+            <option value="4">4 (192 px)</option>
+            <option value="8" selected>8 (768 px)</option>
+            <option value="16">16 (3072 px)</option>
+            <option value="32">32 (12288 px)</option>
+            <option value="64">64 (49152 px, lento)</option>
+          </select>
+        </div>
+        <div>
+          <label>n_attorno (rotazioni per pixel)</label>
+          <select id="nattorno">
+            <option value="50">50</option>
+            <option value="200" selected>200</option>
+            <option value="1000">1000</option>
+            <option value="5000">5000 (lento)</option>
+            <option value="10000">10000 (molto lento)</option>
+          </select>
+        </div>
+      </div>
+      <button id="calcBtn" style="margin-top:14px;">Calcola integrale</button>
+      <progress id="prog" value="0" max="1" style="display:none;"></progress>
+    </div>
+  </div>
+
+  <!-- COLONNA DESTRA: risultati -->
+  <div>
+    <div class="panel">
+      <h2>Risultato numerico</h2>
+      <div id="resultBox">—</div>
+      <div id="resultMeta">nessun calcolo ancora eseguito</div>
+    </div>
+
+    <div class="panel">
+      <h2>Heatmap HEALPix</h2>
+      <div class="heatmap-grid">
+        <div class="heatmap-block">
+          <label>Gradiente di intensità (blu → nero → rosso, scala su max|valore|)</label>
+          <canvas id="canvasGrad" width="900" height="450"></canvas>
+          <div class="legend-bar"><span>min</span><span class="swatch grad-swatch"></span><span>max</span></div>
+        </div>
+        <div class="heatmap-block">
+          <label>Segno del valore (blu = negativo, rosso = positivo)</label>
+          <canvas id="canvasSign" width="900" height="450"></canvas>
+          <div class="legend-bar"><span>−</span><span class="swatch sign-swatch"></span><span>+</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  Proiezione equirettangolare (asse x = φ ∈ [0,2π), asse y = θ ∈ [0,π]). Pixelizzazione: schema HEALPix RING calcolato in JavaScript
+  (equivalente alla libreria healpix_cxx per la visualizzazione, non garantita bit-identica). Codice sorgente originale: brute_force_5.cpp.
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+// ============================================================
+// 1) MATEMATICA DI BASE (porting diretto da brute_force_5.cpp)
+// ============================================================
+function cross(a,b){ return [a[1]*b[2]-a[2]*b[1], -a[0]*b[2]+a[2]*b[0], a[0]*b[1]-a[1]*b[0]]; }
+function dot(a,b){ return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
+function norm(v){ return Math.sqrt(dot(v,v)); }
+function normalize(v){ const m=norm(v); return m>0 ? [v[0]/m,v[1]/m,v[2]/m] : [0,0,0]; }
+
+function localFrame(om){
+  let mm = cross([0,0,1], om);
+  const modM = norm(mm);
+  mm = modM > 0 ? [mm[0]/modM, mm[1]/modM, mm[2]/modM] : [1,0,0];
+  const nn = cross(om, mm);
+  return [mm, nn];
+}
+
+function shapeFg(p, om, m, n, lambdaPlus){
+  const denom = 1.0 + dot(p, om);
+  if (denom <= 0) return 0.0;
+  const pm = dot(p,m), pn = dot(p,n);
+  return lambdaPlus ? (pm*pm - pn*pn)/(2*denom) : (pm*pn)/denom;
+}
+
+function rotateVectors2(p1, p2, axis, cosA, sinA){
+  const x=axis[0], y=axis[1], z=axis[2], c=cosA, s=sinA, t=1-c;
+  const R00=t*x*x+c,   R01=t*x*y-s*z, R02=t*x*z+s*y;
+  const R10=t*x*y+s*z, R11=t*y*y+c,   R12=t*y*z-s*x;
+  const R20=t*x*z-s*y, R21=t*y*z+s*x, R22=t*z*z+c;
+  const np1=[R00*p1[0]+R01*p1[1]+R02*p1[2], R10*p1[0]+R11*p1[1]+R12*p1[2], R20*p1[0]+R21*p1[1]+R22*p1[2]];
+  const np2=[R00*p2[0]+R01*p2[1]+R02*p2[2], R10*p2[0]+R11*p2[1]+R12*p2[2], R20*p2[0]+R21*p2[1]+R22*p2[2]];
+  return [np1, np2];
+}
+
+// Schema HEALPix RING (pix2ang), 0-indicizzato, standard Gorski et al.
+function pix2angRing(nside, ipix){
+  const npix = 12*nside*nside;
+  const ncap = 2*nside*(nside-1);
+  let theta, phi;
+  if (ipix < ncap){
+    const iring = Math.floor(0.5*(1+Math.sqrt(1+2*ipix)));
+    const iphi = (ipix+1) - 2*iring*(iring-1);
+    theta = Math.acos(1 - (iring*iring)/(3*nside*nside));
+    phi = (iphi - 0.5) * Math.PI/(2*iring);
+  } else if (ipix < npix - ncap){
+    const ip = ipix - ncap;
+    const iring = Math.floor(ip/(4*nside)) + nside;
+    const iphi = (ip % (4*nside)) + 1;
+    const fodd = (((iring+nside) % 2) === 0) ? 1.0 : 0.5;
+    theta = Math.acos((2*nside - iring) * 2 / (3*nside));
+    phi = (iphi - fodd) * Math.PI/(2*nside);
+  } else {
+    const ip = npix - ipix;
+    const iring = Math.floor(0.5*(1+Math.sqrt(2*ip-1)));
+    const iphi = 4*iring + 1 - (ip - 2*iring*(iring-1));
+    theta = Math.acos(-1 + (iring*iring)/(3*nside*nside));
+    phi = (iphi - 0.5) * Math.PI/(2*iring);
+  }
+  return [theta, phi];
+}
+
+// ============================================================
+// 2) CALCOLO PRINCIPALE (chunked, non blocca la UI)
+// ============================================================
+async function computeHeatmap(nside, nAttorno, p1,p2,p3, lambda1,lambda2,lambda3, mf1,mf2,mf3, onProgress){
+  const npix = 12*nside*nside;
+  const pixelArea = 4*Math.PI/npix;
+
+  const gamma = Math.acos((-mf3*mf3 + mf1*mf1 + mf2*mf2)/(2*mf1*mf2));
+  const beta  = Math.acos((-mf2*mf2 + mf1*mf1 + mf3*mf3)/(2*mf1*mf3));
+  const sg=Math.sin(gamma), cg=Math.cos(gamma), sb=Math.sin(beta), cb=Math.cos(beta);
+
+  const heatmap = new Float64Array(npix);
+  const thetas = new Float64Array(npix);
+  const phis = new Float64Array(npix);
+  const dAttorno = 2*Math.PI/nAttorno;
+
+  let sumHeat = 0;
+  const CHUNK = 48;
+
+  for (let start=0; start<npix; start+=CHUNK){
+    const end = Math.min(npix, start+CHUNK);
+    for (let idx=start; idx<end; idx++){
+      const [theta, phi] = pix2angRing(nside, idx);
+      thetas[idx]=theta; phis[idx]=phi;
+      const om = [-Math.cos(phi)*Math.sin(theta), -Math.sin(theta)*Math.sin(phi), -Math.cos(theta)];
+      const [m, n] = localFrame(om);
+      const fg1 = shapeFg(p1, om, m, n, lambda1);
+
+      if (fg1 === 0){ heatmap[idx] = 0; continue; }
+
+      const base_om2 = [
+        [m[0]*sg - cg*om[0], m[1]*sg - cg*om[1], m[2]*sg - cg*om[2]],
+        [-m[0]*sg - cg*om[0], -m[1]*sg - cg*om[1], -m[2]*sg - cg*om[2]]
+      ];
+      const base_om3 = [
+        [-m[0]*sb - cb*om[0], -m[1]*sb - cb*om[1], -m[2]*sb - cb*om[2]],
+        [m[0]*sb - cb*om[0], m[1]*sb - cb*om[1], m[2]*sb - cb*om[2]]
+      ];
+
+      let acc = 0;
+      for (let k=0; k<nAttorno; k++){
+        const ang = k*dAttorno;
+        const ca = Math.cos(ang), sa = Math.sin(ang);
+        for (let i=0; i<2; i++){
+          const [om2, om3] = rotateVectors2(base_om2[i], base_om3[i], om, ca, sa);
+          const [m2, n2] = localFrame(om2);
+          const [m3, n3] = localFrame(om3);
+          const fg2 = shapeFg(p2, om2, m2, n2, lambda2);
+          const fg3 = shapeFg(p3, om3, m3, n3, lambda3);
+          acc += fg2*fg3;
+        }
+      }
+      heatmap[idx] = fg1 * (acc/2);
+      sumHeat += heatmap[idx];
+    }
+    onProgress(end/npix);
+    await new Promise(r => setTimeout(r, 0));
+  }
+
+  const result = sumHeat * pixelArea / (4*Math.PI*nAttorno);
+  return { heatmap, thetas, phis, result, npix };
+}
+
+// ============================================================
+// 3) SCENA 3D: sfera di input, punti trascinabili via click
+// ============================================================
+const wrap = document.getElementById('canvas3d-wrap');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b0e14);
+const camera = new THREE.PerspectiveCamera(45, wrap.clientWidth/wrap.clientHeight, 0.1, 100);
+camera.position.set(2.2, 1.6, 2.2);
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+wrap.appendChild(renderer.domElement);
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+const dl = new THREE.DirectionalLight(0xffffff, 0.6);
+dl.position.set(3,4,5);
+scene.add(dl);
+
+const sphereGeo = new THREE.SphereGeometry(1, 40, 28);
+const sphereMat = new THREE.MeshStandardMaterial({ color:0x1a2130, wireframe:false, transparent:true, opacity:0.55, roughness:0.9 });
+const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
+scene.add(sphereMesh);
+const wireMat = new THREE.MeshBasicMaterial({ color:0x2a3244, wireframe:true, transparent:true, opacity:0.5 });
+scene.add(new THREE.Mesh(sphereGeo, wireMat));
+
+const markerColors = [0xff5c7a, 0x5ec8ff, 0xffd25e];
+const markers = markerColors.map(c => {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(0.045, 16, 16), new THREE.MeshBasicMaterial({ color:c }));
+  scene.add(m);
+  return m;
+});
+const lines = markerColors.map(c => {
+  const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,0)]);
+  const l = new THREE.Line(geo, new THREE.LineBasicMaterial({ color:c }));
+  scene.add(l);
+  return l;
+});
+
+function getPointInputs(i){
+  const ids = ['p1','p2','p3'][i];
+  return {
+    x: document.getElementById(ids+'x'), y: document.getElementById(ids+'y'), z: document.getElementById(ids+'z')
+  };
+}
+function readPoint(i){
+  const el = getPointInputs(i);
+  return normalize([parseFloat(el.x.value)||0, parseFloat(el.y.value)||0, parseFloat(el.z.value)||0]);
+}
+function writePoint(i, v){
+  const el = getPointInputs(i);
+  el.x.value = v[0].toFixed(3); el.y.value = v[1].toFixed(3); el.z.value = v[2].toFixed(3);
+}
+
+function updateMarkers(){
+  for (let i=0;i<3;i++){
+    const v = readPoint(i);
+    markers[i].position.set(v[0], v[1], v[2]);
+    lines[i].geometry.setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(v[0],v[1],v[2])]);
+  }
+}
+updateMarkers();
+['p1x','p1y','p1z','p2x','p2y','p2z','p3x','p3y','p3z'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', updateMarkers);
+});
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+renderer.domElement.addEventListener('click', (ev)=>{
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((ev.clientX-rect.left)/rect.width)*2-1;
+  mouse.y = -((ev.clientY-rect.top)/rect.height)*2+1;
+  raycaster.setFromCamera(mouse, camera);
+  const hit = raycaster.intersectObject(sphereMesh)[0];
+  if (!hit) return;
+  const active = parseInt(document.querySelector('input[name=active]:checked').value, 10);
+  const v = normalize([hit.point.x, hit.point.y, hit.point.z]);
+  writePoint(active, v);
+  updateMarkers();
+});
+
+function onResize(){
+  camera.aspect = wrap.clientWidth/wrap.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+}
+window.addEventListener('resize', onResize);
+
+function animate(){
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+// ============================================================
+// 4) HEATMAP 2D (proiezione equirettangolare, punti scatter)
+// ============================================================
+function colorGradient(t){ // t in [-1,1] -> blu..nero..rosso
+  t = Math.max(-1, Math.min(1, t));
+  if (t >= 0){
+    const r = Math.round(255*t), g = 0, b = 0;
+    return `rgb(${r},${g},${b})`;
+  } else {
+    const b = Math.round(255*(-t));
+    return `rgb(0,0,${b})`;
+  }
+}
+function colorSign(v){
+  if (Math.abs(v) < 1e-12) return 'rgb(60,60,70)';
+  return v > 0 ? 'rgb(255,92,92)' : 'rgb(79,124,255)';
+}
+
+function drawHeatmap(canvas, thetas, phis, heatmap, mode){
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0,0,W,H);
+  let maxAbs = 1e-12;
+  for (let i=0;i<heatmap.length;i++) maxAbs = Math.max(maxAbs, Math.abs(heatmap[i]));
+  const r = Math.max(2, Math.round(W/140));
+  for (let i=0;i<heatmap.length;i++){
+    const x = (phis[i]/(2*Math.PI)) * W;
+    const y = (thetas[i]/Math.PI) * H;
+    ctx.fillStyle = mode === 'grad' ? colorGradient(heatmap[i]/maxAbs) : colorSign(heatmap[i]);
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, 2*Math.PI);
+    ctx.fill();
+  }
+}
+
+// ============================================================
+// 5) ORCHESTRAZIONE UI
+// ============================================================
+const calcBtn = document.getElementById('calcBtn');
+const prog = document.getElementById('prog');
+const resultBox = document.getElementById('resultBox');
+const resultMeta = document.getElementById('resultMeta');
+const canvasGrad = document.getElementById('canvasGrad');
+const canvasSign = document.getElementById('canvasSign');
+
+calcBtn.addEventListener('click', async ()=>{
+  calcBtn.disabled = true;
+  prog.style.display = 'block';
+  prog.value = 0;
+  resultMeta.textContent = 'calcolo in corso…';
+
+  const nside = parseInt(document.getElementById('nside').value, 10);
+  const nAttorno = parseInt(document.getElementById('nattorno').value, 10);
+
+  const p1 = readPoint(0), p2 = readPoint(1), p3 = readPoint(2);
+  const lambda1 = document.getElementById('p1lambda').value === '1';
+  const lambda2 = document.getElementById('p2lambda').value === '1';
+  const lambda3 = document.getElementById('p3lambda').value === '1';
+  const mf1 = parseFloat(document.getElementById('p1m').value) || 1;
+  const mf2 = parseFloat(document.getElementById('p2m').value) || 1;
+  const mf3 = parseFloat(document.getElementById('p3m').value) || 1;
+
+  const t0 = performance.now();
+  try{
+    const { heatmap, thetas, phis, result, npix } = await computeHeatmap(
+      nside, nAttorno, p1, p2, p3, lambda1, lambda2, lambda3, mf1, mf2, mf3,
+      (f)=>{ prog.value = f; }
+    );
+    const dt = ((performance.now()-t0)/1000).toFixed(2);
+    resultBox.textContent = result.toExponential(6);
+    resultMeta.textContent = `n_side=${nside} · npix=${npix} · n_attorno=${nAttorno} · tempo ${dt}s`;
+    drawHeatmap(canvasGrad, thetas, phis, heatmap, 'grad');
+    drawHeatmap(canvasSign, thetas, phis, heatmap, 'sign');
+  } catch(err){
+    resultMeta.textContent = 'errore: ' + err.message;
+    console.error(err);
+  } finally {
+    calcBtn.disabled = false;
+    prog.style.display = 'none';
+  }
+});
+</script>
+</body>
+</html>
