@@ -88,11 +88,11 @@
   }
   #resultMeta{ color:var(--muted); font-size:11px; }
   .heatmap-grid{ display:grid; grid-template-columns:1fr; gap:16px; }
-  .heatmap-block canvas{ width:100%; height:auto; border-radius:8px; border:1px solid var(--line); background:#fff; }
+  .heatmap-block canvas{ width:100%; height:auto; border-radius:8px; border:1px solid var(--line); background:#000; }
   .legend-bar{ display:flex; align-items:center; gap:8px; margin-top:6px; font-size:11px; color:var(--muted); }
   .legend-bar .swatch{ width:120px; height:10px; border-radius:4px; }
-  .grad-swatch{ background:linear-gradient(90deg,var(--neg),#ffffff,var(--pos)); border:1px solid var(--line); }
-  .sign-swatch{ background:linear-gradient(90deg,var(--neg) 0%,var(--neg) 48%,#eeeeee 50%,var(--pos) 52%,var(--pos) 100%); border:1px solid var(--line); }
+  .grad-swatch{ background:linear-gradient(90deg,var(--neg),var(--pos)); border:1px solid var(--line); }
+  .sign-swatch{ background:linear-gradient(90deg,var(--neg) 0%,var(--neg) 50%,var(--pos) 50%,var(--pos) 100%); border:1px solid var(--line); }
   footer{ padding:14px 24px; color:var(--muted); font-size:11px; border-top:1px solid var(--line); }
   a{ color:var(--accent); }
 </style>
@@ -477,25 +477,24 @@ function mollweideXY(theta, phi){
   return [x, y]; // x in [-2*sqrt2, 2*sqrt2], y in [-sqrt2, sqrt2]
 }
 
-function colorGradient(t){ // t in [-1,1] -> blue..white..red
+function colorGradient(t){ // t in [-1,1] -> blue..red, linear blend, no white midpoint
   t = Math.max(-1, Math.min(1, t));
-  if (t >= 0){
-    const g = Math.round(255*(1-t));
-    return `rgb(255,${g},${g})`;
-  } else {
-    const g = Math.round(255*(1+t));
-    return `rgb(${g},${g},255)`;
-  }
+  const f = (t+1)/2; // 0 = full blue, 1 = full red
+  const blue = [60,90,255], red = [255,60,60];
+  const r = Math.round(blue[0] + (red[0]-blue[0])*f);
+  const g = Math.round(blue[1] + (red[1]-blue[1])*f);
+  const b = Math.round(blue[2] + (red[2]-blue[2])*f);
+  return `rgb(${r},${g},${b})`;
 }
 function colorSign(v){
-  if (Math.abs(v) < 1e-12) return 'rgb(225,225,230)';
-  return v > 0 ? 'rgb(230,40,40)' : 'rgb(40,90,230)';
+  if (Math.abs(v) < 1e-12) return 'rgb(90,90,100)';
+  return v > 0 ? 'rgb(255,60,60)' : 'rgb(60,90,255)';
 }
 
 function drawHeatmap(canvas, thetas, phis, heatmap, mode){
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
-  ctx.fillStyle = '#fff';
+  ctx.fillStyle = '#000';
   ctx.fillRect(0,0,W,H);
   let maxAbs = 1e-12;
   for (let i=0;i<heatmap.length;i++) maxAbs = Math.max(maxAbs, Math.abs(heatmap[i]));
@@ -559,8 +558,8 @@ calcBtn.addEventListener('click', async ()=>{
     for (let i=0;i<heatmap.length;i++){ if (heatmap[i]<vmin) vmin=heatmap[i]; if (heatmap[i]>vmax) vmax=heatmap[i]; }
     legendMin.textContent = fmt(vmin);
     legendMax.textContent = fmt(vmax);
-    legendSignMin.textContent = fmt(vmin);
-    legendSignMax.textContent = fmt(vmax);
+    legendSignMin.textContent = '−1';
+    legendSignMax.textContent = '+1';
 
     drawHeatmap(canvasGrad, thetas, phis, heatmap, 'grad');
     drawHeatmap(canvasSign, thetas, phis, heatmap, 'sign');
