@@ -109,6 +109,7 @@
 <header>
   <h1>Spherical Triangle</h1>
   <span class="sub">HEALPix integral of the product of three shape functions — web port of brute_force_5.cpp</span>
+  <a href="page2.html" style="margin-left:auto; color:var(--accent); text-decoration:none; font-size:12px; border:1px solid var(--line); padding:6px 10px; border-radius:6px;">3D sweep →</a>
 </header>
 
 <main>
@@ -223,8 +224,13 @@
         <label for="showPulsars" style="margin:0;">show as stars on the maps</label>
       </div>
       <label>RA, Dec (degrees), one pulsar per line</label>
-      <textarea id="pulsarList" rows="4" readonly></textarea>
-      <div class="field-note">Automatically synchronized with P1, P2, P3 astronomical coordinates (RA, Dec)</div>
+      <textarea id="pulsarList" rows="6">69.3156, -47.2523
+258.4592, 7.7935
+287.4460, -37.7365
+266.0392, -11.5711
+7.6142, 4.8607
+326.4358, -7.8397</textarea>
+      <div class="field-note">off by default — turn on if you actually want pulsar sky positions overlaid too</div>
     </div>
   </div>
 
@@ -322,15 +328,6 @@ function pix2angRing(nside, ipix){
     phi = (iphi - 0.5) * Math.PI/(2*iring);
   }
   return [theta, phi];
-}
-
-// Convert 3D direction vector (x,y,z) to Astronomical Coordinates RA, Dec in degrees
-function vecToRaDec(v){
-  const normV = normalize(v);
-  let ra = Math.atan2(normV[1], normV[0]) * 180 / Math.PI;
-  if (ra < 0) ra += 360;
-  const dec = Math.asin(Math.max(-1, Math.min(1, normV[2]))) * 180 / Math.PI;
-  return { ra: ra.toFixed(4), dec: dec.toFixed(4) };
 }
 
 // ============================================================
@@ -451,19 +448,12 @@ function writePoint(i, v){
   el.x.value = v[0].toFixed(3); el.y.value = v[1].toFixed(3); el.z.value = v[2].toFixed(3);
 }
 
-function syncPulsarTextarea(){
-  const p1 = readPoint(0), p2 = readPoint(1), p3 = readPoint(2);
-  const rd1 = vecToRaDec(p1), rd2 = vecToRaDec(p2), rd3 = vecToRaDec(p3);
-  document.getElementById('pulsarList').value = `${rd1.ra}, ${rd1.dec}\n${rd2.ra}, ${rd2.dec}\n${rd3.ra}, ${rd3.dec}`;
-}
-
 function updateMarkers(){
   for (let i=0;i<3;i++){
     const v = readPoint(i);
     markers[i].position.set(v[0], v[1], v[2]);
     lines[i].geometry.setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(v[0],v[1],v[2])]);
   }
-  syncPulsarTextarea();
 }
 updateMarkers();
 ['p1x','p1y','p1z','p2x','p2y','p2z','p3x','p3y','p3z'].forEach(id=>{
@@ -538,7 +528,7 @@ function colorSign(v){
   return v > 0 ? 'rgb(255,60,60)' : 'rgb(60,90,255)';
 }
 
-function drawStar(ctx, cx, cy, r, fill='#ffffff'){
+function drawStar(ctx, cx, cy, r, fill){
   const spikes = 5, outer = r, inner = r*0.45;
   ctx.beginPath();
   for (let i=0; i<spikes*2; i++){
@@ -595,26 +585,22 @@ function drawHeatmap(canvas, thetas, phis, heatmap, mode, pulsars, trianglePts){
     ctx.arc(px, py, r, 0, 2*Math.PI);
     ctx.fill();
   }
-  
-  const starR = Math.max(6, Math.round(W/75));
-
-  if (trianglePts && trianglePts.length){
-    const colors = ['#ff5c7a', '#5ec8ff', '#ffd25e'];
-    trianglePts.forEach((v, idx)=>{
-      const [theta, phi] = vecToAngles(v);
-      const [x, y] = mollweideXY(theta, phi);
-      const px = ((x/(2*Math.sqrt(2))) + 1) / 2 * W;
-      const py = (1 - ((y/Math.sqrt(2)) + 1) / 2) * H;
-      drawStar(ctx, px, py, starR, colors[idx]);
-    });
-  }
-
   if (pulsars && pulsars.length){
+    const starR = Math.max(4, Math.round(W/90));
     pulsars.forEach(([theta, phi])=>{
       const [x, y] = mollweideXY(theta, phi);
       const px = ((x/(2*Math.sqrt(2))) + 1) / 2 * W;
       const py = (1 - ((y/Math.sqrt(2)) + 1) / 2) * H;
-      drawStar(ctx, px, py, Math.max(4, Math.round(W/90)), '#ffffff');
+      drawStar(ctx, px, py, starR, '#ffe45e');
+    });
+  }
+  if (trianglePts && trianglePts.length){
+    const starR = Math.max(6, Math.round(W/70));
+    trianglePts.forEach(({theta, phi, color})=>{
+      const [x, y] = mollweideXY(theta, phi);
+      const px = ((x/(2*Math.sqrt(2))) + 1) / 2 * W;
+      const py = (1 - ((y/Math.sqrt(2)) + 1) / 2) * H;
+      drawStar(ctx, px, py, starR, color);
     });
   }
   return maxAbs;
@@ -643,12 +629,27 @@ const legendSignMax = document.getElementById('legendSignMax');
 const downloadGradBtn = document.getElementById('downloadGrad');
 const downloadSignBtn = document.getElementById('downloadSign');
 const showPulsarsChk = document.getElementById('showPulsars');
-const showTrianglePtsChk = document.getElementById('showTrianglePts');
+const showTriChk = document.getElementById('showTrianglePts');
+const triLegend = document.getElementById('triLegend');
+const pointColors = ['#ff5c7a', '#5ec8ff', '#ffd25e'];
 
 downloadGradBtn.addEventListener('click', ()=> downloadCanvas(canvasGrad, 'heatmap_gradient.png'));
 downloadSignBtn.addEventListener('click', ()=> downloadCanvas(canvasSign, 'heatmap_sign.png'));
 
 function fmt(v){ return v.toExponential(3); }
+
+function buildTrianglePts(p1,p2,p3,lambda1,lambda2,lambda3){
+  const pol = (l)=> l ? '+' : '×';
+  const pts = [p1,p2,p3].map((p,i)=>{
+    const [theta, phi] = vecToAngles(p);
+    return { theta, phi, color: pointColors[i] };
+  });
+  triLegend.innerHTML =
+    `<span style="color:${pointColors[0]}">★ P1</span> — polarization ${pol(lambda1)}<br>` +
+    `<span style="color:${pointColors[1]}">★ P2</span> — polarization ${pol(lambda2)}<br>` +
+    `<span style="color:${pointColors[2]}">★ P3</span> — polarization ${pol(lambda3)}`;
+  return pts;
+}
 
 calcBtn.addEventListener('click', async ()=>{
   calcBtn.disabled = true;
@@ -684,11 +685,10 @@ calcBtn.addEventListener('click', async ()=>{
     legendSignMin.textContent = '−1';
     legendSignMax.textContent = '+1';
 
-    const triPts = showTrianglePtsChk.checked ? [p1, p2, p3] : [];
-    const pulsars = showPulsarsChk.checked ? parsePulsars() : [];
-
-    drawHeatmap(canvasGrad, thetas, phis, heatmap, 'grad', pulsars, triPts);
-    drawHeatmap(canvasSign, thetas, phis, heatmap, 'sign', pulsars, triPts);
+    const pulsarPts = showPulsarsChk.checked ? parsePulsars() : [];
+    const triPts = showTriChk.checked ? buildTrianglePts(p1,p2,p3,lambda1,lambda2,lambda3) : [];
+    drawHeatmap(canvasGrad, thetas, phis, heatmap, 'grad', pulsarPts, triPts);
+    drawHeatmap(canvasSign, thetas, phis, heatmap, 'sign', pulsarPts, triPts);
   } catch(err){
     resultMeta.textContent = 'error: ' + err.message;
     console.error(err);
