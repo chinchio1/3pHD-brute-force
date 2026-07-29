@@ -208,9 +208,18 @@
     </div>
 
     <div class="panel">
+      <h2>Triangle point markers</h2>
+      <div class="checkbox-row">
+        <input type="checkbox" id="showTrianglePts" checked>
+        <label for="showTrianglePts" style="margin:0;">show P1, P2, P3 as stars on the maps</label>
+      </div>
+      <div id="triLegend" class="field-note" style="line-height:1.7;">—</div>
+    </div>
+
+    <div class="panel">
       <h2>Pulsar positions</h2>
       <div class="checkbox-row">
-        <input type="checkbox" id="showPulsars" checked>
+        <input type="checkbox" id="showPulsars">
         <label for="showPulsars" style="margin:0;">show as stars on the maps</label>
       </div>
       <label>RA, Dec (degrees), one pulsar per line</label>
@@ -220,7 +229,7 @@
 266.0392, -11.5711
 7.6142, 4.8607
 326.4358, -7.8397</textarea>
-      <div class="field-note">defaults: a handful of well-known PTA millisecond pulsars — edit or replace freely</div>
+      <div class="field-note">off by default — turn on if you actually want pulsar sky positions overlaid too</div>
     </div>
   </div>
 
@@ -502,13 +511,14 @@ function mollweideXY(theta, phi){
   return [x, y]; // x in [-2*sqrt2, 2*sqrt2], y in [-sqrt2, sqrt2]
 }
 
-function colorGradient(t){ // t in [-1,1] -> blue..white..red (colorblind-friendly diverging map)
+function colorGradient(t){ // t in [-1,1] -> blue..white..red, contrast-boosted
   t = Math.max(-1, Math.min(1, t));
-  if (t >= 0){
-    const g = Math.round(255*(1-t));
+  const s = Math.sign(t) * Math.pow(Math.abs(t), 0.45); // steeper ramp = more visible gradient
+  if (s >= 0){
+    const g = Math.round(255*(1-s));
     return `rgb(255,${g},${g})`;
   } else {
-    const g = Math.round(255*(1+t));
+    const g = Math.round(255*(1+s));
     return `rgb(${g},${g},255)`;
   }
 }
@@ -517,7 +527,7 @@ function colorSign(v){
   return v > 0 ? 'rgb(255,60,60)' : 'rgb(60,90,255)';
 }
 
-function drawStar(ctx, cx, cy, r){
+function drawStar(ctx, cx, cy, r, fill){
   const spikes = 5, outer = r, inner = r*0.45;
   ctx.beginPath();
   for (let i=0; i<spikes*2; i++){
@@ -527,11 +537,18 @@ function drawStar(ctx, cx, cy, r){
     i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
   }
   ctx.closePath();
-  ctx.fillStyle = '#ffe45e';
+  ctx.fillStyle = fill;
   ctx.fill();
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 1.4;
   ctx.strokeStyle = '#000';
   ctx.stroke();
+}
+
+function vecToAngles(v){
+  const theta = Math.acos(Math.max(-1, Math.min(1, v[2])));
+  let phi = Math.atan2(v[1], v[0]);
+  if (phi < 0) phi += 2*Math.PI;
+  return [theta, phi];
 }
 
 function parsePulsars(){
