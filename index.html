@@ -527,7 +527,7 @@ function colorSign(v){
   return v > 0 ? 'rgb(255,60,60)' : 'rgb(60,90,255)';
 }
 
-function drawStar(ctx, cx, cy, r, fill){
+function drawStar(ctx, cx, cy, r, fill='#ffffff'){
   const spikes = 5, outer = r, inner = r*0.45;
   ctx.beginPath();
   for (let i=0; i<spikes*2; i++){
@@ -567,7 +567,7 @@ function parsePulsars(){
   return pts;
 }
 
-function drawHeatmap(canvas, thetas, phis, heatmap, mode, pulsars){
+function drawHeatmap(canvas, thetas, phis, heatmap, mode, pulsars, trianglePts){
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
   ctx.fillStyle = '#000';
@@ -584,13 +584,26 @@ function drawHeatmap(canvas, thetas, phis, heatmap, mode, pulsars){
     ctx.arc(px, py, r, 0, 2*Math.PI);
     ctx.fill();
   }
+  
+  const starR = Math.max(6, Math.round(W/75));
+
+  if (trianglePts && trianglePts.length){
+    const colors = ['#ff5c7a', '#5ec8ff', '#ffd25e'];
+    trianglePts.forEach((v, idx)=>{
+      const [theta, phi] = vecToAngles(v);
+      const [x, y] = mollweideXY(theta, phi);
+      const px = ((x/(2*Math.sqrt(2))) + 1) / 2 * W;
+      const py = (1 - ((y/Math.sqrt(2)) + 1) / 2) * H;
+      drawStar(ctx, px, py, starR, colors[idx]);
+    });
+  }
+
   if (pulsars && pulsars.length){
-    const starR = Math.max(4, Math.round(W/90));
     pulsars.forEach(([theta, phi])=>{
       const [x, y] = mollweideXY(theta, phi);
       const px = ((x/(2*Math.sqrt(2))) + 1) / 2 * W;
       const py = (1 - ((y/Math.sqrt(2)) + 1) / 2) * H;
-      drawStar(ctx, px, py, starR);
+      drawStar(ctx, px, py, Math.max(4, Math.round(W/90)), '#ffffff');
     });
   }
   return maxAbs;
@@ -619,6 +632,7 @@ const legendSignMax = document.getElementById('legendSignMax');
 const downloadGradBtn = document.getElementById('downloadGrad');
 const downloadSignBtn = document.getElementById('downloadSign');
 const showPulsarsChk = document.getElementById('showPulsars');
+const showTrianglePtsChk = document.getElementById('showTrianglePts');
 
 downloadGradBtn.addEventListener('click', ()=> downloadCanvas(canvasGrad, 'heatmap_gradient.png'));
 downloadSignBtn.addEventListener('click', ()=> downloadCanvas(canvasSign, 'heatmap_sign.png'));
@@ -659,8 +673,11 @@ calcBtn.addEventListener('click', async ()=>{
     legendSignMin.textContent = '−1';
     legendSignMax.textContent = '+1';
 
-    drawHeatmap(canvasGrad, thetas, phis, heatmap, 'grad', showPulsarsChk.checked ? parsePulsars() : []);
-    drawHeatmap(canvasSign, thetas, phis, heatmap, 'sign', showPulsarsChk.checked ? parsePulsars() : []);
+    const triPts = showTrianglePtsChk.checked ? [p1, p2, p3] : [];
+    const pulsars = showPulsarsChk.checked ? parsePulsars() : [];
+
+    drawHeatmap(canvasGrad, thetas, phis, heatmap, 'grad', pulsars, triPts);
+    drawHeatmap(canvasSign, thetas, phis, heatmap, 'sign', pulsars, triPts);
   } catch(err){
     resultMeta.textContent = 'error: ' + err.message;
     console.error(err);
