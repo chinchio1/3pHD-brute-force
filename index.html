@@ -91,8 +91,15 @@
   .heatmap-block canvas{ width:100%; height:auto; border-radius:8px; border:1px solid var(--line); background:#000; }
   .legend-bar{ display:flex; align-items:center; gap:8px; margin-top:6px; font-size:11px; color:var(--muted); }
   .legend-bar .swatch{ width:120px; height:10px; border-radius:4px; }
-  .grad-swatch{ background:linear-gradient(90deg,var(--neg),var(--pos)); border:1px solid var(--line); }
+  .grad-swatch{ background:linear-gradient(90deg,var(--neg),#ffffff,var(--pos)); border:1px solid var(--line); }
   .sign-swatch{ background:linear-gradient(90deg,var(--neg) 0%,var(--neg) 50%,var(--pos) 50%,var(--pos) 100%); border:1px solid var(--line); }
+  textarea{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    padding:6px 8px; border-radius:6px; font-family:inherit; font-size:11px; resize:vertical;
+  }
+  .checkbox-row{ display:flex; align-items:center; gap:6px; margin:8px 0; color:var(--muted); font-size:11px; }
+  .btn-row{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+  .btn-row button{ font-size:11px; padding:8px; }
   footer{ padding:14px 24px; color:var(--muted); font-size:11px; border-top:1px solid var(--line); }
   a{ color:var(--accent); }
 </style>
@@ -199,6 +206,22 @@
       <button id="calcBtn" style="margin-top:14px;">Compute integral</button>
       <progress id="prog" value="0" max="1" style="display:none;"></progress>
     </div>
+
+    <div class="panel">
+      <h2>Pulsar positions</h2>
+      <div class="checkbox-row">
+        <input type="checkbox" id="showPulsars" checked>
+        <label for="showPulsars" style="margin:0;">show as stars on the maps</label>
+      </div>
+      <label>RA, Dec (degrees), one pulsar per line</label>
+      <textarea id="pulsarList" rows="6">69.3156, -47.2523
+258.4592, 7.7935
+287.4460, -37.7365
+266.0392, -11.5711
+7.6142, 4.8607
+326.4358, -7.8397</textarea>
+      <div class="field-note">defaults: a handful of well-known PTA millisecond pulsars — edit or replace freely</div>
+    </div>
   </div>
 
   <!-- RIGHT COLUMN: results -->
@@ -216,11 +239,13 @@
           <label>Intensity gradient (blue → white → red, scaled to max|value|)</label>
           <canvas id="canvasGrad" width="900" height="450"></canvas>
           <div class="legend-bar"><span id="legendMin">—</span><span class="swatch grad-swatch"></span><span id="legendMax">—</span></div>
+          <div class="btn-row"><button id="downloadGrad">Download PNG</button></div>
         </div>
         <div class="heatmap-block">
-          <label>Sign map (−1 = blue, +1 = red)</label>
+          <label>Sign of the value (blue = negative, red = positive)</label>
           <canvas id="canvasSign" width="900" height="450"></canvas>
           <div class="legend-bar"><span id="legendSignMin">—</span><span class="swatch sign-swatch"></span><span id="legendSignMax">—</span></div>
+          <div class="btn-row"><button id="downloadSign">Download PNG</button></div>
         </div>
       </div>
     </div>
@@ -354,7 +379,7 @@ async function computeHeatmap(nside, nAttorno, p1,p2,p3, lambda1,lambda2,lambda3
     await new Promise(r => setTimeout(r, 0));
   }
 
-  const result = sumHeat * pixelArea / (4*Math.PI*nAttorno);
+  const result = sumHeat * pixelArea / (4*Math.PI*nAttorno) * (8*Math.PI*Math.PI);
   return { heatmap, thetas, phis, result, npix };
 }
 
@@ -477,34 +502,59 @@ function mollweideXY(theta, phi){
   return [x, y]; // x in [-2*sqrt2, 2*sqrt2], y in [-sqrt2, sqrt2]
 }
 
-function colorGradient(t){   // t in [-1,1]
-    t = Math.max(-1, Math.min(1, t));
-
-    const blue = [40,80,255];
-    const red  = [255,40,40];
-
-    const a = (t + 1.0) * 0.5;
-
-    const r = Math.round(blue[0] + a*(red[0]-blue[0]));
-    const g = Math.round(blue[1] + a*(red[1]-blue[1]));
-    const b = Math.round(blue[2] + a*(red[2]-blue[2]));
-
-    return `rgb(${r},${g},${b})`;
+function colorGradient(t){ // t in [-1,1] -> blue..white..red (colorblind-friendly diverging map)
+  t = Math.max(-1, Math.min(1, t));
+  if (t >= 0){
+    const g = Math.round(255*(1-t));
+    return `rgb(255,${g},${g})`;
+  } else {
+    const g = Math.round(255*(1+t));
+    return `rgb(${g},${g},255)`;
+  }
 }
 function colorSign(v){
-
-    if(v > 0) return "rgb(255,40,40)";
-    if(v < 0) return "rgb(40,80,255)";
-
-    return "rgb(0,0,0)";
+  if (Math.abs(v) < 1e-12) return 'rgb(90,90,100)';
+  return v > 0 ? 'rgb(255,60,60)' : 'rgb(60,90,255)';
 }
-function drawHeatmap(canvas, thetas, phis, heatmap, mode){
+
+function drawStar(ctx, cx, cy, r){
+  const spikes = 5, outer = r, inner = r*0.45;
+  ctx.beginPath();
+  for (let i=0; i<spikes*2; i++){
+    const rad = (i % 2 === 0) ? outer : inner;
+    const ang = (Math.PI/spikes)*i - Math.PI/2;
+    const x = cx + Math.cos(ang)*rad, y = cy + Math.sin(ang)*rad;
+    i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  }
+  ctx.closePath();
+  ctx.fillStyle = '#ffe45e';
+  ctx.fill();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = '#000';
+  ctx.stroke();
+}
+
+function parsePulsars(){
+  const raw = document.getElementById('pulsarList').value;
+  const pts = [];
+  raw.split('\n').forEach(line=>{
+    const parts = line.split(',').map(s=>parseFloat(s.trim()));
+    if (parts.length===2 && !isNaN(parts[0]) && !isNaN(parts[1])){
+      const raDeg = parts[0], decDeg = parts[1];
+      const theta = (90 - decDeg) * Math.PI/180;
+      let phi = raDeg * Math.PI/180;
+      phi = ((phi % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
+      pts.push([theta, phi]);
+    }
+  });
+  return pts;
+}
+
+function drawHeatmap(canvas, thetas, phis, heatmap, mode, pulsars){
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
-ctx.clearRect(0,0,W,H);
-
-ctx.fillStyle = "black";
-ctx.fillRect(0,0,W,H);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0,0,W,H);
   let maxAbs = 1e-12;
   for (let i=0;i<heatmap.length;i++) maxAbs = Math.max(maxAbs, Math.abs(heatmap[i]));
   const r = Math.max(1.6, Math.round(W/220));
@@ -517,7 +567,23 @@ ctx.fillRect(0,0,W,H);
     ctx.arc(px, py, r, 0, 2*Math.PI);
     ctx.fill();
   }
+  if (pulsars && pulsars.length){
+    const starR = Math.max(4, Math.round(W/90));
+    pulsars.forEach(([theta, phi])=>{
+      const [x, y] = mollweideXY(theta, phi);
+      const px = ((x/(2*Math.sqrt(2))) + 1) / 2 * W;
+      const py = (1 - ((y/Math.sqrt(2)) + 1) / 2) * H;
+      drawStar(ctx, px, py, starR);
+    });
+  }
   return maxAbs;
+}
+
+function downloadCanvas(canvas, filename){
+  const link = document.createElement('a');
+  link.download = filename;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
 }
 
 // ============================================================
@@ -533,6 +599,12 @@ const legendMin = document.getElementById('legendMin');
 const legendMax = document.getElementById('legendMax');
 const legendSignMin = document.getElementById('legendSignMin');
 const legendSignMax = document.getElementById('legendSignMax');
+const downloadGradBtn = document.getElementById('downloadGrad');
+const downloadSignBtn = document.getElementById('downloadSign');
+const showPulsarsChk = document.getElementById('showPulsars');
+
+downloadGradBtn.addEventListener('click', ()=> downloadCanvas(canvasGrad, 'heatmap_gradient.png'));
+downloadSignBtn.addEventListener('click', ()=> downloadCanvas(canvasSign, 'heatmap_sign.png'));
 
 function fmt(v){ return v.toExponential(3); }
 
@@ -570,8 +642,8 @@ calcBtn.addEventListener('click', async ()=>{
     legendSignMin.textContent = '−1';
     legendSignMax.textContent = '+1';
 
-    drawHeatmap(canvasGrad, thetas, phis, heatmap, 'grad');
-    drawHeatmap(canvasSign, thetas, phis, heatmap, 'sign');
+    drawHeatmap(canvasGrad, thetas, phis, heatmap, 'grad', showPulsarsChk.checked ? parsePulsars() : []);
+    drawHeatmap(canvasSign, thetas, phis, heatmap, 'sign', showPulsarsChk.checked ? parsePulsars() : []);
   } catch(err){
     resultMeta.textContent = 'error: ' + err.message;
     console.error(err);
