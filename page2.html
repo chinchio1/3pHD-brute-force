@@ -28,6 +28,7 @@
   header{
     padding:18px 24px; border-bottom:1px solid var(--line);
     display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;
+    position:sticky; top:0; background:var(--bg); z-index:10;
   }
   header h1{
     font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:20px;
@@ -86,7 +87,10 @@
 <header>
   <h1>Spherical Triangle — 3D Sweep</h1>
   <span class="sub">integral result vs. two pulsar sky positions, third pulsar fixed at the pole</span>
-  <a class="navlink" href="index.html">← back to sky maps</a>
+  <div style="margin-left:auto; display:flex; gap:8px;">
+    <a href="index.html" style="color:var(--accent); text-decoration:none; font-size:12px; border:1px solid var(--line); padding:6px 10px; border-radius:6px;">← sky maps</a>
+    <a href="page3.html" style="color:var(--accent); text-decoration:none; font-size:12px; border:1px solid var(--line); padding:6px 10px; border-radius:6px;">frequency sweep →</a>
+  </div>
 </header>
 
 <main>
