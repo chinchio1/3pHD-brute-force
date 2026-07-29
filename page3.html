@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spherical Triangle — Frequency Sweep</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0b0e14;
+    --panel: #12161f;
+    --panel-2: #171c27;
+    --line: #232a38;
+    --text: #dfe4ee;
+    --muted: #7c869c;
+    --accent: #5ee6c8;
+    --p1: #ff5c7a;
+    --p2: #5ec8ff;
+    --p3: #ffd25e;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'IBM Plex Mono', monospace; font-size:13px;
+    display:flex; flex-direction:column; min-height:100vh;
+  }
+  header{
+    padding:18px 24px; border-bottom:1px solid var(--line);
+    display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;
+    position:sticky; top:0; background:var(--bg); z-index:10;
+  }
+  header h1{
+    font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:20px;
+    margin:0; letter-spacing:0.3px;
+  }
+  header span.sub{ color:var(--muted); font-size:12px; }
+  header a.navlink{
+    margin-left:auto; color:var(--accent); text-decoration:none; font-size:12px;
+    border:1px solid var(--line); padding:6px 10px; border-radius:6px;
+  }
+  main{
+    flex:1; display:grid; grid-template-columns: 380px 1fr; gap:16px;
+    padding:16px 24px 32px;
+  }
+  @media (max-width: 980px){ main{ grid-template-columns: 1fr; } }
+  .panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:16px;
+  }
+  .panel + .panel{ margin-top:16px; }
+  h2{
+    font-family:'Space Grotesk', sans-serif; font-size:13px; text-transform:uppercase;
+    letter-spacing:1px; color:var(--accent); margin:0 0 12px;
+  }
+  .dot{ width:10px; height:10px; border-radius:50%; flex:none; }
+  .dot.p1{background:var(--p1);} .dot.p2{background:var(--p2);} .dot.p3{background:var(--p3);}
+  label{ display:block; color:var(--muted); font-size:11px; margin:6px 0 3px; }
+  input[type=number], select{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    padding:6px 8px; border-radius:6px; font-family:inherit; font-size:12px;
+  }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .row3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; }
+  fieldset{
+    border:1px solid var(--line); border-radius:8px; padding:10px 10px 8px; margin:0 0 10px;
+  }
+  legend{ padding:0 6px; color:var(--text); font-size:12px; display:flex; align-items:center; gap:6px;}
+  .freq-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+  .freq-head .radiolbl{ display:flex; align-items:center; gap:6px; color:var(--muted); font-size:11px; }
+  button{
+    width:100%; background:var(--accent); color:#06110d; border:none; border-radius:8px;
+    padding:11px; font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:13px;
+    cursor:pointer; letter-spacing:0.3px;
+  }
+  button:disabled{ background:var(--line); color:var(--muted); cursor:progress; }
+  button.secondary{ background:transparent; border:1px solid var(--line); color:var(--muted); margin-top:8px; }
+  progress{ width:100%; height:8px; accent-color:var(--accent); margin-top:10px; }
+  .field-note{ color:var(--muted); font-size:10px; margin-top:2px; }
+  #plotWrap{ background:#000; border-radius:10px; border:1px solid var(--line); overflow:hidden; }
+  #plotDiv{ width:100%; height:640px; }
+  #statusLine{ color:var(--muted); font-size:11px; margin-top:8px; }
+  footer{ padding:14px 24px; color:var(--muted); font-size:11px; border-top:1px solid var(--line); }
+  a{ color:var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Spherical Triangle — Frequency Sweep</h1>
+  <span class="sub">integral result vs. two GW frequencies, third frequency held fixed</span>
+  <!-- add your own nav links here, see instructions -->
+</header>
+
+<main>
+  <!-- LEFT COLUMN: parameters -->
+  <div>
+    <div class="panel">
+      <h2>Fixed points</h2>
+      <fieldset>
+        <legend><span class="dot p1"></span> P1</legend>
+        <label>Vector (x, y, z) — direction, normalized automatically</label>
+        <div class="row3">
+          <input type="number" step="0.01" id="p1x" value="0">
+          <input type="number" step="0.01" id="p1y" value="0">
+          <input type="number" step="0.01" id="p1z" value="1">
+        </div>
+        <label>Polarization</label>
+        <select id="p1lambda"><option value="1">+</option><option value="0">×</option></select>
+      </fieldset>
+      <fieldset>
+        <legend><span class="dot p2"></span> P2</legend>
+        <label>Vector (x, y, z) — direction, normalized automatically</label>
+        <div class="row3">
+          <input type="number" step="0.01" id="p2x" value="1">
+          <input type="number" step="0.01" id="p2y" value="0">
+          <input type="number" step="0.01" id="p2z" value="0">
+        </div>
+        <label>Polarization</label>
+        <select id="p2lambda"><option value="1">+</option><option value="0">×</option></select>
+      </fieldset>
+      <fieldset>
+        <legend><span class="dot p3"></span> P3</legend>
+        <label>Vector (x, y, z) — direction, normalized automatically</label>
+        <div class="row3">
+          <input type="number" step="0.01" id="p3x" value="0">
+          <input type="number" step="0.01" id="p3y" value="1">
+          <input type="number" step="0.01" id="p3z" value="0">
+        </div>
+        <label>Polarization</label>
+        <select id="p3lambda"><option value="1">+</option><option value="0">×</option></select>
+      </fieldset>
+    </div>
+
+    <div class="panel">
+      <h2>Frequency sweep</h2>
+      <div class="field-note" style="margin-bottom:10px;">Pick which GW frequency stays fixed. The other two are swept and become the x/y axes of the 3D plot.</div>
+
+      <fieldset id="fset1">
+        <div class="freq-head">
+          <span><span class="dot p1"></span> Frequency of GW1</span>
+          <label class="radiolbl"><input type="radio" name="fixedFreq" value="0" checked> hold fixed</label>
+        </div>
+        <div class="fixedBlock">
+          <label>Fixed value</label>
+          <input type="number" step="0.01" class="fixedVal" value="1">
+        </div>
+        <div class="sweepBlock" style="display:none;">
+          <label>Sweep — from / to / points</label>
+          <div class="row3">
+            <input type="number" step="0.01" class="sweepMin" value="0.5">
+            <input type="number" step="0.01" class="sweepMax" value="2">
+            <input type="number" step="1" min="2" class="sweepN" value="15">
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset id="fset2">
+        <div class="freq-head">
+          <span><span class="dot p2"></span> Frequency of GW2</span>
+          <label class="radiolbl"><input type="radio" name="fixedFreq" value="1"> hold fixed</label>
+        </div>
+        <div class="fixedBlock" style="display:none;">
+          <label>Fixed value</label>
+          <input type="number" step="0.01" class="fixedVal" value="1">
+        </div>
+        <div class="sweepBlock">
+          <label>Sweep — from / to / points</label>
+          <div class="row3">
+            <input type="number" step="0.01" class="sweepMin" value="0.5">
+            <input type="number" step="0.01" class="sweepMax" value="2">
+            <input type="number" step="1" min="2" class="sweepN" value="15">
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset id="fset3">
+        <div class="freq-head">
+          <span><span class="dot p3"></span> Frequency of GW3</span>
+          <label class="radiolbl"><input type="radio" name="fixedFreq" value="2"> hold fixed</label>
+        </div>
+        <div class="fixedBlock" style="display:none;">
+          <label>Fixed value</label>
+          <input type="number" step="0.01" class="fixedVal" value="1">
+        </div>
+        <div class="sweepBlock">
+          <label>Sweep — from / to / points</label>
+          <div class="row3">
+            <input type="number" step="0.01" class="sweepMin" value="0.5">
+            <input type="number" step="0.01" class="sweepMax" value="2">
+            <input type="number" step="1" min="2" class="sweepN" value="15">
+          </div>
+        </div>
+      </fieldset>
+
+      <div class="field-note">Total evaluations = points(axis 1) × points(axis 2) — each one is a full HEALPix integral, so keep this modest.</div>
+    </div>
+
+    <div class="panel">
+      <h2>HEALPix integration parameters</h2>
+      <div class="row2">
+        <div>
+          <label>n_side (per evaluation)</label>
+          <select id="nside">
+            <option value="4">4 (192 px)</option>
+            <option value="8" selected>8 (768 px)</option>
+            <option value="16">16 (3072 px)</option>
+            <option value="32">32 (12288 px, slow)</option>
+          </select>
+        </div>
+        <div>
+          <label>n_attorno (per evaluation)</label>
+          <input type="number" id="nattorno" value="50" min="1" step="1">
+        </div>
+      </div>
+      <button id="calcBtn" style="margin-top:14px;">Compute 3D sweep</button>
+      <progress id="prog" value="0" max="1" style="display:none;"></progress>
+      <div id="statusLine">no computation run yet</div>
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN: plot -->
+  <div>
+    <div class="panel">
+      <h2>Result surface</h2>
+      <div id="plotWrap"><div id="plotDiv"></div></div>
+      <button id="downloadBtn" class="secondary" style="margin-top:10px;">Download screenshot (PNG)</button>
+    </div>
+  </div>
+</main>
+
+<footer>
+  Same underlying HEALPix integral as the other pages (brute_force_5.cpp port), evaluated once per (freq A, freq B) grid point.
+  Vertical axis = integral result (includes the 8·π² correction factor). Points P1, P2, P3 and their polarizations are fixed here.
+</footer>
+
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<script>
+// ============================================================
+// CORE MATH — identical port to the other pages
+// ============================================================
+function cross(a,b){ return [a[1]*b[2]-a[2]*b[1], -a[0]*b[2]+a[2]*b[0], a[0]*b[1]-a[1]*b[0]]; }
+function dot(a,b){ return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
+function norm(v){ return Math.sqrt(dot(v,v)); }
+function normalize(v){ const m=norm(v); return m>0 ? [v[0]/m,v[1]/m,v[2]/m] : [0,0,0]; }
+
+function localFrame(om){
+  let mm = cross([0,0,1], om);
+  const modM = norm(mm);
+  mm = modM > 0 ? [mm[0]/modM, mm[1]/modM, mm[2]/modM] : [1,0,0];
+  const nn = cross(om, mm);
+  return [mm, nn];
+}
+function shapeFg(p, om, m, n, lambdaPlus){
+  const denom = 1.0 + dot(p, om);
+  if (denom <= 0) return 0.0;
+  const pm = dot(p,m), pn = dot(p,n);
+  return lambdaPlus ? (pm*pm - pn*pn)/(2*denom) : (pm*pn)/denom;
+}
+function rotateVectors2(p1, p2, axis, cosA, sinA){
+  const x=axis[0], y=axis[1], z=axis[2], c=cosA, s=sinA, t=1-c;
+  const R00=t*x*x+c,   R01=t*x*y-s*z, R02=t*x*z+s*y;
+  const R10=t*x*y+s*z, R11=t*y*y+c,   R12=t*y*z-s*x;
+  const R20=t*x*z-s*y, R21=t*y*z+s*x, R22=t*z*z+c;
+  const np1=[R00*p1[0]+R01*p1[1]+R02*p1[2], R10*p1[0]+R11*p1[1]+R12*p1[2], R20*p1[0]+R21*p1[1]+R22*p1[2]];
+  const np2=[R00*p2[0]+R01*p2[1]+R02*p2[2], R10*p2[0]+R11*p2[1]+R12*p2[2], R20*p2[0]+R21*p2[1]+R22*p2[2]];
+  return [np1, np2];
+}
+function pix2angRing(nside, ipix){
+  const npix = 12*nside*nside;
+  const ncap = 2*nside*(nside-1);
+  let theta, phi;
+  if (ipix < ncap){
+    const iring = Math.floor(0.5*(1+Math.sqrt(1+2*ipix)));
+    const iphi = (ipix+1) - 2*iring*(iring-1);
+    theta = Math.acos(1 - (iring*iring)/(3*nside*nside));
+    phi = (iphi - 0.5) * Math.PI/(2*iring);
+  } else if (ipix < npix - ncap){
+    const ip = ipix - ncap;
+    const iring = Math.floor(ip/(4*nside)) + nside;
+    const iphi = (ip % (4*nside)) + 1;
+    const fodd = (((iring+nside) % 2) === 0) ? 1.0 : 0.5;
+    theta = Math.acos((2*nside - iring) * 2 / (3*nside));
+    phi = (iphi - fodd) * Math.PI/(2*nside);
+  } else {
+    const ip = npix - ipix;
+    const iring = Math.floor(0.5*(1+Math.sqrt(2*ip-1)));
+    const iphi = 4*iring + 1 - (ip - 2*iring*(iring-1));
+    theta = Math.acos(-1 + (iring*iring)/(3*nside*nside));
+    phi = (iphi - 0.5) * Math.PI/(2*iring);
+  }
+  return [theta, phi];
+}
+
+let cachedNside = null, cachedOm = null;
+function getPixelDirs(nside){
+  if (cachedNside === nside) return cachedOm;
+  const npix = 12*nside*nside;
+  const arr = new Array(npix);
+  for (let idx=0; idx<npix; idx++){
+    const [theta, phi] = pix2angRing(nside, idx);
+    arr[idx] = [-Math.cos(phi)*Math.sin(theta), -Math.sin(theta)*Math.sin(phi), -Math.cos(theta)];
+  }
+  cachedNside = nside; cachedOm = arr;
+  return arr;
+}
+
+function computeResult(nside, nAttorno, p1,p2,p3, lambda1,lambda2,lambda3, mf1,mf2,mf3){
+  const oms = getPixelDirs(nside);
+  const npix = oms.length;
+  const pixelArea = 4*Math.PI/npix;
+
+  const gamma = Math.acos((-mf3*mf3 + mf1*mf1 + mf2*mf2)/(2*mf1*mf2));
+  const beta  = Math.acos((-mf2*mf2 + mf1*mf1 + mf3*mf3)/(2*mf1*mf3));
+  const sg=Math.sin(gamma), cg=Math.cos(gamma), sb=Math.sin(beta), cb=Math.cos(beta);
+  const dAttorno = 2*Math.PI/nAttorno;
+
+  let sumHeat = 0;
+  for (let idx=0; idx<npix; idx++){
+    const om = oms[idx];
+    const [m, n] = localFrame(om);
+    const fg1 = shapeFg(p1, om, m, n, lambda1);
+    if (fg1 === 0) continue;
+
+    const base_om2 = [
+      [m[0]*sg - cg*om[0], m[1]*sg - cg*om[1], m[2]*sg - cg*om[2]],
+      [-m[0]*sg - cg*om[0], -m[1]*sg - cg*om[1], -m[2]*sg - cg*om[2]]
+    ];
+    const base_om3 = [
+      [-m[0]*sb - cb*om[0], -m[1]*sb - cb*om[1], -m[2]*sb - cb*om[2]],
+      [m[0]*sb - cb*om[0], m[1]*sb - cb*om[1], m[2]*sb - cb*om[2]]
+    ];
+
+    let acc = 0;
+    for (let k=0; k<nAttorno; k++){
+      const ang = k*dAttorno;
+      const ca = Math.cos(ang), sa = Math.sin(ang);
+      for (let i=0; i<2; i++){
+        const [om2, om3] = rotateVectors2(base_om2[i], base_om3[i], om, ca, sa);
+        const [m2, n2] = localFrame(om2);
+        const [m3, n3] = localFrame(om3);
+        const fg2 = shapeFg(p2, om2, m2, n2, lambda2);
+        const fg3 = shapeFg(p3, om3, m3, n3, lambda3);
+        acc += fg2*fg3;
+      }
+    }
+    sumHeat += fg1 * (acc/2);
+  }
+  return sumHeat * pixelArea / (4*Math.PI*nAttorno) * (8*Math.PI*Math.PI);
+}
+
+function linspace(minV, maxV, n){
+  const arr = new Array(n);
+  for (let i=0;i<n;i++) arr[i] = minV + (maxV-minV) * (n===1 ? 0 : i/(n-1));
+  return arr;
+}
+
+// ============================================================
+// POINT INPUTS
+// ============================================================
+function readPoint(i){
+  const ids = ['p1','p2','p3'][i];
+  const x = parseFloat(document.getElementById(ids+'x').value) || 0;
+  const y = parseFloat(document.getElementById(ids+'y').value) || 0;
+  const z = parseFloat(document.getElementById(ids+'z').value) || 0;
+  return normalize([x,y,z]);
+}
+
+// ============================================================
+// FREQUENCY-SWEEP UI: toggle fixed/sweep blocks per radio choice
+// ============================================================
+const fsets = [document.getElementById('fset1'), document.getElementById('fset2'), document.getElementById('fset3')];
+document.querySelectorAll('input[name=fixedFreq]').forEach(radio=>{
+  radio.addEventListener('change', ()=>{
+    const fixedIdx = parseInt(document.querySelector('input[name=fixedFreq]:checked').value, 10);
+    fsets.forEach((fset, i)=>{
+      fset.querySelector('.fixedBlock').style.display = (i===fixedIdx) ? 'block' : 'none';
+      fset.querySelector('.sweepBlock').style.display = (i===fixedIdx) ? 'none' : 'block';
+    });
+  });
+});
+
+// ============================================================
+// UI ORCHESTRATION
+// ============================================================
+const calcBtn = document.getElementById('calcBtn');
+const prog = document.getElementById('prog');
+const statusLine = document.getElementById('statusLine');
+const downloadBtn = document.getElementById('downloadBtn');
+let plotted = false;
+
+calcBtn.addEventListener('click', async ()=>{
+  calcBtn.disabled = true;
+  prog.style.display = 'block';
+  prog.value = 0;
+  statusLine.textContent = 'computing…';
+
+  const p1 = readPoint(0), p2 = readPoint(1), p3 = readPoint(2);
+  const lambda1 = document.getElementById('p1lambda').value === '1';
+  const lambda2 = document.getElementById('p2lambda').value === '1';
+  const lambda3 = document.getElementById('p3lambda').value === '1';
+  const nside = parseInt(document.getElementById('nside').value, 10);
+  const nAttorno = Math.max(1, Math.round(parseFloat(document.getElementById('nattorno').value) || 50));
+
+  const fixedIdx = parseInt(document.querySelector('input[name=fixedFreq]:checked').value, 10);
+  const fixedVal = parseFloat(fsets[fixedIdx].querySelector('.fixedVal').value) || 1;
+
+  const sweepIdx = [0,1,2].filter(i => i !== fixedIdx); // [axisA, axisB]
+  const sweepVals = sweepIdx.map(i=>{
+    const fset = fsets[i];
+    const mn = parseFloat(fset.querySelector('.sweepMin').value) || 0.1;
+    const mx = parseFloat(fset.querySelector('.sweepMax').value) || 1;
+    const n = Math.max(2, Math.round(parseFloat(fset.querySelector('.sweepN').value) || 15));
+    return linspace(mn, mx, n);
+  });
+  const [valsA, valsB] = sweepVals;
+  const nA = valsA.length, nB = valsB.length;
+
+  const Z = new Array(nB);
+  for (let j=0;j<nB;j++) Z[j] = new Array(nA).fill(0);
+
+  const total = nA * nB;
+  let done = 0;
+  const t0 = performance.now();
+
+  for (let j=0; j<nB; j++){
+    for (let i=0; i<nA; i++){
+      const freqs = [0,0,0];
+      freqs[fixedIdx] = fixedVal;
+      freqs[sweepIdx[0]] = valsA[i];
+      freqs[sweepIdx[1]] = valsB[j];
+      Z[j][i] = computeResult(nside, nAttorno, p1, p2, p3, lambda1, lambda2, lambda3, freqs[0], freqs[1], freqs[2]);
+      done++;
+      prog.value = done/total;
+      if (done % 3 === 0) { statusLine.textContent = `computing… ${done}/${total}`; await new Promise(r=>setTimeout(r,0)); }
+    }
+  }
+
+  const dt = ((performance.now()-t0)/1000).toFixed(2);
+  statusLine.textContent = `done — ${total} evaluations in ${dt}s (n_side=${nside}, n_attorno=${nAttorno})`;
+
+  const axisLabels = ['Frequency of GW1', 'Frequency of GW2', 'Frequency of GW3'];
+
+  Plotly.newPlot('plotDiv', [{
+    type: 'surface',
+    x: valsA,
+    y: valsB,
+    z: Z,
+    colorscale: [[0,'#3c5aff'],[0.5,'#ffffff'],[1,'#ff3c3c']],
+    contours: { z: { show:true, usecolormap:true, project:{z:true} } }
+  }], {
+    paper_bgcolor:'#000', plot_bgcolor:'#000',
+    font:{ color:'#dfe4ee', family:'IBM Plex Mono, monospace' },
+    margin:{ l:0, r:0, t:10, b:0 },
+    scene:{
+      xaxis:{ title:axisLabels[sweepIdx[0]], color:'#7c869c', gridcolor:'#232a38' },
+      yaxis:{ title:axisLabels[sweepIdx[1]], color:'#7c869c', gridcolor:'#232a38' },
+      zaxis:{ title:'Integral result', color:'#7c869c', gridcolor:'#232a38' },
+      bgcolor:'#000'
+    }
+  }, { responsive:true, displaylogo:false });
+
+  plotted = true;
+  calcBtn.disabled = false;
+  prog.style.display = 'none';
+});
+
+downloadBtn.addEventListener('click', ()=>{
+  if (!plotted){ statusLine.textContent = 'compute the sweep first'; return; }
+  Plotly.downloadImage('plotDiv', { format:'png', filename:'triangle_frequency_sweep', height:900, width:1200, scale:2 });
+});
+</script>
+</body>
+</html>
