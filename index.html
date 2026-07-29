@@ -31,6 +31,7 @@
   header{
     padding:18px 24px; border-bottom:1px solid var(--line);
     display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;
+    position:sticky; top:0; background:var(--bg); z-index:10;
   }
   header h1{
     font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:20px;
@@ -209,28 +210,12 @@
     </div>
 
     <div class="panel">
-      <h2>Triangle point markers</h2>
+      <h2>Pulsar positions</h2>
       <div class="checkbox-row">
         <input type="checkbox" id="showTrianglePts" checked>
         <label for="showTrianglePts" style="margin:0;">show P1, P2, P3 as stars on the maps</label>
       </div>
       <div id="triLegend" class="field-note" style="line-height:1.7;">—</div>
-    </div>
-
-    <div class="panel">
-      <h2>Pulsar positions</h2>
-      <div class="checkbox-row">
-        <input type="checkbox" id="showPulsars">
-        <label for="showPulsars" style="margin:0;">show as stars on the maps</label>
-      </div>
-      <label>RA, Dec (degrees), one pulsar per line</label>
-      <textarea id="pulsarList" rows="6">69.3156, -47.2523
-258.4592, 7.7935
-287.4460, -37.7365
-266.0392, -11.5711
-7.6142, 4.8607
-326.4358, -7.8397</textarea>
-      <div class="field-note">off by default — turn on if you actually want pulsar sky positions overlaid too</div>
     </div>
   </div>
 
@@ -552,23 +537,7 @@ function vecToAngles(v){
   return [theta, phi];
 }
 
-function parsePulsars(){
-  const raw = document.getElementById('pulsarList').value;
-  const pts = [];
-  raw.split('\n').forEach(line=>{
-    const parts = line.split(',').map(s=>parseFloat(s.trim()));
-    if (parts.length===2 && !isNaN(parts[0]) && !isNaN(parts[1])){
-      const raDeg = parts[0], decDeg = parts[1];
-      const theta = (90 - decDeg) * Math.PI/180;
-      let phi = raDeg * Math.PI/180;
-      phi = ((phi % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
-      pts.push([theta, phi]);
-    }
-  });
-  return pts;
-}
-
-function drawHeatmap(canvas, thetas, phis, heatmap, mode, pulsars, trianglePts){
+function drawHeatmap(canvas, thetas, phis, heatmap, mode, trianglePts){
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
   ctx.fillStyle = '#000';
@@ -584,15 +553,6 @@ function drawHeatmap(canvas, thetas, phis, heatmap, mode, pulsars, trianglePts){
     ctx.beginPath();
     ctx.arc(px, py, r, 0, 2*Math.PI);
     ctx.fill();
-  }
-  if (pulsars && pulsars.length){
-    const starR = Math.max(4, Math.round(W/90));
-    pulsars.forEach(([theta, phi])=>{
-      const [x, y] = mollweideXY(theta, phi);
-      const px = ((x/(2*Math.sqrt(2))) + 1) / 2 * W;
-      const py = (1 - ((y/Math.sqrt(2)) + 1) / 2) * H;
-      drawStar(ctx, px, py, starR, '#ffe45e');
-    });
   }
   if (trianglePts && trianglePts.length){
     const starR = Math.max(6, Math.round(W/70));
@@ -628,7 +588,6 @@ const legendSignMin = document.getElementById('legendSignMin');
 const legendSignMax = document.getElementById('legendSignMax');
 const downloadGradBtn = document.getElementById('downloadGrad');
 const downloadSignBtn = document.getElementById('downloadSign');
-const showPulsarsChk = document.getElementById('showPulsars');
 const showTriChk = document.getElementById('showTrianglePts');
 const triLegend = document.getElementById('triLegend');
 const pointColors = ['#ff5c7a', '#5ec8ff', '#ffd25e'];
@@ -685,10 +644,9 @@ calcBtn.addEventListener('click', async ()=>{
     legendSignMin.textContent = '−1';
     legendSignMax.textContent = '+1';
 
-    const pulsarPts = showPulsarsChk.checked ? parsePulsars() : [];
     const triPts = showTriChk.checked ? buildTrianglePts(p1,p2,p3,lambda1,lambda2,lambda3) : [];
-    drawHeatmap(canvasGrad, thetas, phis, heatmap, 'grad', pulsarPts, triPts);
-    drawHeatmap(canvasSign, thetas, phis, heatmap, 'sign', pulsarPts, triPts);
+    drawHeatmap(canvasGrad, thetas, phis, heatmap, 'grad', triPts);
+    drawHeatmap(canvasSign, thetas, phis, heatmap, 'sign', triPts);
   } catch(err){
     resultMeta.textContent = 'error: ' + err.message;
     console.error(err);
