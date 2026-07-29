@@ -223,13 +223,8 @@
         <label for="showPulsars" style="margin:0;">show as stars on the maps</label>
       </div>
       <label>RA, Dec (degrees), one pulsar per line</label>
-      <textarea id="pulsarList" rows="6">69.3156, -47.2523
-258.4592, 7.7935
-287.4460, -37.7365
-266.0392, -11.5711
-7.6142, 4.8607
-326.4358, -7.8397</textarea>
-      <div class="field-note">off by default — turn on if you actually want pulsar sky positions overlaid too</div>
+      <textarea id="pulsarList" rows="4" readonly></textarea>
+      <div class="field-note">Automatically synchronized with P1, P2, P3 astronomical coordinates (RA, Dec)</div>
     </div>
   </div>
 
@@ -327,6 +322,15 @@ function pix2angRing(nside, ipix){
     phi = (iphi - 0.5) * Math.PI/(2*iring);
   }
   return [theta, phi];
+}
+
+// Convert 3D direction vector (x,y,z) to Astronomical Coordinates RA, Dec in degrees
+function vecToRaDec(v){
+  const normV = normalize(v);
+  let ra = Math.atan2(normV[1], normV[0]) * 180 / Math.PI;
+  if (ra < 0) ra += 360;
+  const dec = Math.asin(Math.max(-1, Math.min(1, normV[2]))) * 180 / Math.PI;
+  return { ra: ra.toFixed(4), dec: dec.toFixed(4) };
 }
 
 // ============================================================
@@ -447,12 +451,19 @@ function writePoint(i, v){
   el.x.value = v[0].toFixed(3); el.y.value = v[1].toFixed(3); el.z.value = v[2].toFixed(3);
 }
 
+function syncPulsarTextarea(){
+  const p1 = readPoint(0), p2 = readPoint(1), p3 = readPoint(2);
+  const rd1 = vecToRaDec(p1), rd2 = vecToRaDec(p2), rd3 = vecToRaDec(p3);
+  document.getElementById('pulsarList').value = `${rd1.ra}, ${rd1.dec}\n${rd2.ra}, ${rd2.dec}\n${rd3.ra}, ${rd3.dec}`;
+}
+
 function updateMarkers(){
   for (let i=0;i<3;i++){
     const v = readPoint(i);
     markers[i].position.set(v[0], v[1], v[2]);
     lines[i].geometry.setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(v[0],v[1],v[2])]);
   }
+  syncPulsarTextarea();
 }
 updateMarkers();
 ['p1x','p1y','p1z','p2x','p2y','p2z','p3x','p3y','p3z'].forEach(id=>{
