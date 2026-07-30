@@ -334,17 +334,31 @@ function computeResult(nside, nAttorno, p1,p2,p3, lambda1,lambda2,lambda3, mf1,m
       [m[0]*sb - cb*om[0], m[1]*sb - cb*om[1], m[2]*sb - cb*om[2]]
     ];
 
+    // Scorciatoia: se le frequenze di P2 e P3 coincidono, gamma == beta e i due
+    // rami i=0/i=1 producono lo stesso contributo — si calcola una volta sola
+    // e si raddoppia, dimezzando il costo del ciclo interno.
+    const freqSymmetric = Math.abs(mf2 - mf3) < 1e-12 * Math.max(1, Math.abs(mf2), Math.abs(mf3));
+
     let acc = 0;
     for (let k=0; k<nAttorno; k++){
       const ang = k*dAttorno;
       const ca = Math.cos(ang), sa = Math.sin(ang);
-      for (let i=0; i<2; i++){
-        const [om2, om3] = rotateVectors2(base_om2[i], base_om3[i], om, ca, sa);
+      if (freqSymmetric){
+        const [om2, om3] = rotateVectors2(base_om2[0], base_om3[0], om, ca, sa);
         const [m2, n2] = localFrame(om2);
         const [m3, n3] = localFrame(om3);
         const fg2 = shapeFg(p2, om2, m2, n2, lambda2);
         const fg3 = shapeFg(p3, om3, m3, n3, lambda3);
-        acc += fg2*fg3;
+        acc += 2 * fg2*fg3;
+      } else {
+        for (let i=0; i<2; i++){
+          const [om2, om3] = rotateVectors2(base_om2[i], base_om3[i], om, ca, sa);
+          const [m2, n2] = localFrame(om2);
+          const [m3, n3] = localFrame(om3);
+          const fg2 = shapeFg(p2, om2, m2, n2, lambda2);
+          const fg3 = shapeFg(p3, om3, m3, n3, lambda3);
+          acc += fg2*fg3;
+        }
       }
     }
     sumHeat += fg1 * (acc/2);
