@@ -113,6 +113,7 @@
   <div style="margin-left:auto; display:flex; gap:8px;">
     <a href="page2.html" style="color:var(--accent); text-decoration:none; font-size:12px; border:1px solid var(--line); padding:6px 10px; border-radius:6px;">3D sweep (angles) →</a>
     <a href="page3.html" style="color:var(--accent); text-decoration:none; font-size:12px; border:1px solid var(--line); padding:6px 10px; border-radius:6px;">3D sweep (frequencies) →</a>
+    <a href="page4.html" style="color:var(--accent); text-decoration:none; font-size:12px; border:1px solid var(--line); padding:6px 10px; border-radius:6px;">polarizations →</a>
   </div>
 </header>
 
@@ -325,8 +326,14 @@ async function computeHeatmap(nside, nAttorno, p1,p2,p3, lambda1,lambda2,lambda3
   const npix = 12*nside*nside;
   const pixelArea = 4*Math.PI/npix;
 
-  const gamma = Math.acos((-mf3*mf3 + mf1*mf1 + mf2*mf2)/(2*mf1*mf2));
-  const beta  = Math.acos((-mf2*mf2 + mf1*mf1 + mf3*mf3)/(2*mf1*mf3));
+  // Se le tre frequenze non rispettano la disuguaglianza triangolare, gli
+  // argomenti di acos() cadono fuori da [-1,1]: invece di propagare NaN,
+  // trattiamo l'intera configurazione come fisicamente nulla (risultato 0).
+  const argGamma = (-mf3*mf3 + mf1*mf1 + mf2*mf2)/(2*mf1*mf2);
+  const argBeta  = (-mf2*mf2 + mf1*mf1 + mf3*mf3)/(2*mf1*mf3);
+  const triangleValid = argGamma >= -1 && argGamma <= 1 && argBeta >= -1 && argBeta <= 1;
+  const gamma = triangleValid ? Math.acos(argGamma) : 0;
+  const beta  = triangleValid ? Math.acos(argBeta) : 0;
   const sg=Math.sin(gamma), cg=Math.cos(gamma), sb=Math.sin(beta), cb=Math.cos(beta);
 
   const heatmap = new Float64Array(npix);
@@ -346,7 +353,7 @@ async function computeHeatmap(nside, nAttorno, p1,p2,p3, lambda1,lambda2,lambda3
       const [m, n] = localFrame(om);
       const fg1 = shapeFg(p1, om, m, n, lambda1);
 
-      if (fg1 === 0){ heatmap[idx] = 0; continue; }
+      if (!triangleValid || fg1 === 0){ heatmap[idx] = 0; continue; }
 
       const base_om2 = [
         [m[0]*sg - cg*om[0], m[1]*sg - cg*om[1], m[2]*sg - cg*om[2]],
