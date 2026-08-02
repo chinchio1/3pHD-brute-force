@@ -92,6 +92,7 @@
   <div style="margin-left:auto; display:flex; gap:8px;">
     <a href="index.html" style="color:var(--accent); text-decoration:none; font-size:12px; border:1px solid var(--line); padding:6px 10px; border-radius:6px;">← sky maps</a>
     <a href="page2.html" style="color:var(--accent); text-decoration:none; font-size:12px; border:1px solid var(--line); padding:6px 10px; border-radius:6px;">← angle sweep</a>
+    <a href="page4.html" style="color:var(--accent); text-decoration:none; font-size:12px; border:1px solid var(--line); padding:6px 10px; border-radius:6px;">polarizations →</a>
   </div>
 </header>
 
@@ -313,8 +314,13 @@ function computeResult(nside, nAttorno, p1,p2,p3, lambda1,lambda2,lambda3, mf1,m
   const npix = oms.length;
   const pixelArea = 4*Math.PI/npix;
 
-  const gamma = Math.acos((-mf3*mf3 + mf1*mf1 + mf2*mf2)/(2*mf1*mf2));
-  const beta  = Math.acos((-mf2*mf2 + mf1*mf1 + mf3*mf3)/(2*mf1*mf3));
+  // Se le tre frequenze non rispettano la disuguaglianza triangolare, si
+  // ritorna 0 invece di propagare NaN dagli acos() fuori dominio.
+  const argGamma = (-mf3*mf3 + mf1*mf1 + mf2*mf2)/(2*mf1*mf2);
+  const argBeta  = (-mf2*mf2 + mf1*mf1 + mf3*mf3)/(2*mf1*mf3);
+  if (argGamma < -1 || argGamma > 1 || argBeta < -1 || argBeta > 1) return 0;
+  const gamma = Math.acos(argGamma);
+  const beta  = Math.acos(argBeta);
   const sg=Math.sin(gamma), cg=Math.cos(gamma), sb=Math.sin(beta), cb=Math.cos(beta);
   const dAttorno = 2*Math.PI/nAttorno;
 
