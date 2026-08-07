@@ -238,13 +238,13 @@
           <label>Intensity gradient (blue → white → red, scaled to max|value|)</label>
           <canvas id="canvasGrad" width="900" height="450"></canvas>
           <div class="legend-bar"><span id="legendMin">—</span><span class="swatch grad-swatch"></span><span id="legendMax">—</span></div>
-          <div class="btn-row"><button id="downloadGrad">Download PNG</button></div>
+          <div class="btn-row"><button id="downloadGrad">Download PDF</button></div>
         </div>
         <div class="heatmap-block">
           <label>Sign of the value (blue = negative, red = positive)</label>
           <canvas id="canvasSign" width="900" height="450"></canvas>
           <div class="legend-bar"><span id="legendSignMin">—</span><span class="swatch sign-swatch"></span><span id="legendSignMax">—</span></div>
-          <div class="btn-row"><button id="downloadSign">Download PNG</button></div>
+          <div class="btn-row"><button id="downloadSign">Download PDF</button></div>
         </div>
       </div>
     </div>
@@ -258,6 +258,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 // ============================================================
 // 1) CORE MATH (direct port of brute_force_5.cpp)
@@ -598,6 +599,164 @@ function downloadCanvas(canvas, filename){
   link.click();
 }
 
+function fmtExport(v){ return v.toExponential(3); }
+
+// Costruisce, su un canvas separato non collegato allo schermo, una versione
+// stampabile della mappa: sfondo bianco, graticola (meridiani/paralleli) con
+// etichette in gradi, e una legenda sulla barra colorata. La mappa a schermo
+// (scura) non viene toccata.
+function buildExportCanvas(thetas, phis, heatmap, mode, trianglePts, titleText){
+  const W = 1400, H = 900;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0,0,W,H);
+
+  const marginTop = 70, marginBottom = 150, marginLeft = 70, marginRight = 70;
+  const mapW = W - marginLeft - marginRight;
+  const mapH = H - marginTop - marginBottom;
+
+  function toCanvas(theta, phi){
+    const [x, y] = mollweideXY(theta, phi);
+    const px = marginLeft + ((x/(2*Math.sqrt(2))) + 1) / 2 * mapW;
+    const py = marginTop + (1 - ((y/Math.sqrt(2)) + 1) / 2) * mapH;
+    return [px, py];
+  }
+
+  ctx.fillStyle = '#111';
+  ctx.font = 'bold 22px Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(titleText, W/2, 40);
+
+  // Graticola: meridiani ogni 60°, paralleli ogni 30°, con etichette in gradi.
+  ctx.strokeStyle = '#bbb';
+  ctx.lineWidth = 1;
+  ctx.font = '12px Arial, sans-serif';
+
+  for (let lonDeg=0; lonDeg<360; lonDeg+=60){
+    ctx.beginPath();
+    let first = true;
+    for (let latDeg=-89; latDeg<=89; latDeg+=2){
+      const theta = (90-latDeg)*Math.PI/180, phi = lonDeg*Math.PI/180;
+      const [px,py] = toCanvas(theta, phi);
+      if (first){ ctx.moveTo(px,py); first=false; } else ctx.lineTo(px,py);
+    }
+    ctx.stroke();
+    const [lx, ly] = toCanvas(Math.PI/2, lonDeg*Math.PI/180);
+    ctx.fillStyle = '#555';
+    ctx.textAlign = 'center';
+    ctx.fillText(lonDeg+'°', lx, ly-6);
+  }
+  for (let latDeg=-60; latDeg<=60; latDeg+=30){
+    ctx.beginPath();
+    let first = true;
+    for (let lonDeg=0; lonDeg<=360; lonDeg+=4){
+      const theta = (90-latDeg)*Math.PI/180, phi = lonDeg*Math.PI/180;
+      const [px,py] = toCanvas(theta, phi);
+      if (first){ ctx.moveTo(px,py); first=false; } else ctx.lineTo(px,py);
+    }
+    ctx.stroke();
+    const [lx, ly] = toCanvas((90-latDeg)*Math.PI/180, 0.0001);
+    ctx.fillStyle = '#555';
+    ctx.textAlign = 'right';
+    ctx.fillText(latDeg+'°', lx-8, ly+4);
+  }
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#333';
+  ctx.font = '13px Arial, sans-serif';
+  ctx.fillText('Longitude φ (deg)', W/2, marginTop + mapH + 20);
+  ctx.save();
+  ctx.translate(20, marginTop + mapH/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText('Latitude (deg)', 0, 0);
+  ctx.restore();
+
+  // Punti (stesso colore usato a schermo, con un sottile bordo scuro per
+  // restare visibili anche dove il colore si avvicina al bianco).
+  let maxAbs = 1e-12;
+  for (let i=0;i<heatmap.length;i++) maxAbs = Math.max(maxAbs, Math.abs(heatmap[i]));
+  const r = Math.max(1.6, Math.round(mapW/220));
+  for (let i=0;i<heatmap.length;i++){
+    const [px, py] = toCanvas(thetas[i], phis[i]);
+    ctx.fillStyle = mode === 'grad' ? colorGradient(heatmap[i]/maxAbs) : colorSign(heatmap[i]);
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, 2*Math.PI);
+    ctx.fill();
+    ctx.lineWidth = 0.4;
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.stroke();
+  }
+  if (trianglePts && trianglePts.length){
+    const starR = Math.max(7, Math.round(mapW/70));
+    trianglePts.forEach(({theta, phi, color})=>{
+      const [px, py] = toCanvas(theta, phi);
+      drawStar(ctx, px, py, starR, color);
+    });
+  }
+
+  ctx.strokeStyle = '#999';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(marginLeft, marginTop, mapW, mapH);
+
+  // Colorbar / legenda
+  const cbX = marginLeft, cbY = H - 90, cbW = mapW, cbH = 22;
+  if (mode === 'grad'){
+    const grad = ctx.createLinearGradient(cbX, 0, cbX+cbW, 0);
+    for (let s=0; s<=20; s++) grad.addColorStop(s/20, colorGradient(-1 + 2*s/20));
+    ctx.fillStyle = grad;
+    ctx.fillRect(cbX, cbY, cbW, cbH);
+    ctx.strokeStyle = '#999';
+    ctx.strokeRect(cbX, cbY, cbW, cbH);
+    ctx.fillStyle = '#111';
+    ctx.font = '13px Arial, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(fmtExport(-maxAbs), cbX, cbY+cbH+18);
+    ctx.textAlign = 'center';
+    ctx.fillText('0', cbX+cbW/2, cbY+cbH+18);
+    ctx.fillText('Value (intensity gradient)', cbX+cbW/2, cbY-8);
+    ctx.textAlign = 'right';
+    ctx.fillText(fmtExport(maxAbs), cbX+cbW, cbY+cbH+18);
+  } else {
+    const swW = 140, gap = 50;
+    const totalW = swW*2 + gap;
+    const startX = cbX + (cbW-totalW)/2;
+    ctx.fillStyle = 'rgb(60,90,255)';
+    ctx.fillRect(startX, cbY, swW, cbH);
+    ctx.strokeStyle = '#999';
+    ctx.strokeRect(startX, cbY, swW, cbH);
+    ctx.fillStyle = 'rgb(255,60,60)';
+    ctx.fillRect(startX+swW+gap, cbY, swW, cbH);
+    ctx.strokeStyle = '#999';
+    ctx.strokeRect(startX+swW+gap, cbY, swW, cbH);
+    ctx.fillStyle = '#111';
+    ctx.font = '13px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('negative (−1)', startX+swW/2, cbY+cbH+18);
+    ctx.fillText('positive (+1)', startX+swW+gap+swW/2, cbY+cbH+18);
+    ctx.fillText('Sign legend', cbX+cbW/2, cbY-8);
+  }
+
+  return canvas;
+}
+
+async function exportHeatmapPdf(thetas, phis, heatmap, mode, trianglePts, titleText, filename, btn){
+  const prevLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Building PDF…';
+  try{
+    const exportCanvas = buildExportCanvas(thetas, phis, heatmap, mode, trianglePts, titleText);
+    const dataUrl = exportCanvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:'landscape', unit:'pt', format:[exportCanvas.width, exportCanvas.height] });
+    doc.addImage(dataUrl, 'PNG', 0, 0, exportCanvas.width, exportCanvas.height);
+    doc.save(filename);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = prevLabel;
+  }
+}
+
 // ============================================================
 // 5) UI ORCHESTRATION
 // ============================================================
@@ -617,8 +776,18 @@ const showTriChk = document.getElementById('showTrianglePts');
 const triLegend = document.getElementById('triLegend');
 const pointColors = ['#ff5c7a', '#5ec8ff', '#ffd25e'];
 
-downloadGradBtn.addEventListener('click', ()=> downloadCanvas(canvasGrad, 'heatmap_gradient.png'));
-downloadSignBtn.addEventListener('click', ()=> downloadCanvas(canvasSign, 'heatmap_sign.png'));
+let lastCompute = null;
+
+downloadGradBtn.addEventListener('click', ()=>{
+  if (!lastCompute){ resultMeta.textContent = 'run the computation first'; return; }
+  exportHeatmapPdf(lastCompute.thetas, lastCompute.phis, lastCompute.heatmap, 'grad', lastCompute.triPts,
+    'Spherical Triangle — Intensity Gradient', 'heatmap_gradient.pdf', downloadGradBtn);
+});
+downloadSignBtn.addEventListener('click', ()=>{
+  if (!lastCompute){ resultMeta.textContent = 'run the computation first'; return; }
+  exportHeatmapPdf(lastCompute.thetas, lastCompute.phis, lastCompute.heatmap, 'sign', lastCompute.triPts,
+    'Spherical Triangle — Sign Map', 'heatmap_sign.pdf', downloadSignBtn);
+});
 
 function fmt(v){ return v.toExponential(3); }
 
@@ -672,6 +841,7 @@ calcBtn.addEventListener('click', async ()=>{
     const triPts = showTriChk.checked ? buildTrianglePts(p1,p2,p3,lambda1,lambda2,lambda3) : [];
     drawHeatmap(canvasGrad, thetas, phis, heatmap, 'grad', triPts);
     drawHeatmap(canvasSign, thetas, phis, heatmap, 'sign', triPts);
+    lastCompute = { thetas, phis, heatmap, triPts };
   } catch(err){
     resultMeta.textContent = 'error: ' + err.message;
     console.error(err);
