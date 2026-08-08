@@ -142,7 +142,7 @@
 
       <fieldset id="fset1">
         <div class="freq-head">
-          <span><span class="dot p1"></span> Frequency of GW1</span>
+          <span><span class="dot p1"></span> Frequency of GW1 (nHz)</span>
           <label class="radiolbl"><input type="radio" name="fixedFreq" value="0" checked> hold fixed</label>
         </div>
         <div class="fixedBlock">
@@ -161,7 +161,7 @@
 
       <fieldset id="fset2">
         <div class="freq-head">
-          <span><span class="dot p2"></span> Frequency of GW2</span>
+          <span><span class="dot p2"></span> Frequency of GW2 (nHz)</span>
           <label class="radiolbl"><input type="radio" name="fixedFreq" value="1"> hold fixed</label>
         </div>
         <div class="fixedBlock" style="display:none;">
@@ -180,7 +180,7 @@
 
       <fieldset id="fset3">
         <div class="freq-head">
-          <span><span class="dot p3"></span> Frequency of GW3</span>
+          <span><span class="dot p3"></span> Frequency of GW3 (nHz)</span>
           <label class="radiolbl"><input type="radio" name="fixedFreq" value="2"> hold fixed</label>
         </div>
         <div class="fixedBlock" style="display:none;">
@@ -227,8 +227,13 @@
   <div>
     <div class="panel">
       <h2>Result surface</h2>
+      <label>Plot title (used on-screen and in the downloaded PDFs)</label>
+      <input type="text" id="plotTitle" value="Spherical Triangle — Frequency Sweep" style="margin-bottom:10px;">
       <div id="plotWrap"><div id="plotDiv"></div></div>
-      <button id="downloadBtn" class="secondary" style="margin-top:10px;">Download PDF</button>
+      <div class="row2" style="margin-top:10px;">
+        <button id="downloadBtn" class="secondary">Download 3D plot (PDF)</button>
+        <button id="downloadHeatBtn" class="secondary">Download heatmap (PDF)</button>
+      </div>
     </div>
   </div>
 </main>
@@ -411,6 +416,8 @@ const calcBtn = document.getElementById('calcBtn');
 const prog = document.getElementById('prog');
 const statusLine = document.getElementById('statusLine');
 const downloadBtn = document.getElementById('downloadBtn');
+const downloadHeatBtn = document.getElementById('downloadHeatBtn');
+const plotTitleInput = document.getElementById('plotTitle');
 let plotted = false;
 let lastSweep = null;
 
@@ -464,7 +471,8 @@ calcBtn.addEventListener('click', async ()=>{
   const dt = ((performance.now()-t0)/1000).toFixed(2);
   statusLine.textContent = `done — ${total} evaluations in ${dt}s (n_side=${nside}, n_attorno=${nAttorno})`;
 
-  const axisLabels = ['Frequency of GW1', 'Frequency of GW2', 'Frequency of GW3'];
+  const axisLabels = ['Frequency of GW1 (nHz)', 'Frequency of GW2 (nHz)', 'Frequency of GW3 (nHz)'];
+  const plotTitle = plotTitleInput.value || 'Spherical Triangle — Frequency Sweep';
 
   Plotly.newPlot('plotDiv', [{
     type: 'surface',
@@ -476,7 +484,8 @@ calcBtn.addEventListener('click', async ()=>{
   }], {
     paper_bgcolor:'#000', plot_bgcolor:'#000',
     font:{ color:'#dfe4ee', family:'IBM Plex Mono, monospace' },
-    margin:{ l:0, r:0, t:10, b:0 },
+    margin:{ l:0, r:0, t:50, b:0 },
+    title:{ text:plotTitle, font:{ color:'#dfe4ee', size:15 } },
     scene:{
       xaxis:{ title:axisLabels[sweepIdx[0]], color:'#7c869c', gridcolor:'#232a38' },
       yaxis:{ title:axisLabels[sweepIdx[1]], color:'#7c869c', gridcolor:'#232a38' },
@@ -496,6 +505,7 @@ downloadBtn.addEventListener('click', async ()=>{
   downloadBtn.disabled = true;
   const prevLabel = downloadBtn.textContent;
   downloadBtn.textContent = 'Building PDF…';
+  const title = plotTitleInput.value || 'Spherical Triangle — Frequency Sweep';
 
   // Render a separate white-background, print-friendly copy of the plot
   // (with a visible colorbar legend) off-screen, without touching the
@@ -518,7 +528,7 @@ downloadBtn.addEventListener('click', async ()=>{
     paper_bgcolor:'#ffffff', plot_bgcolor:'#ffffff',
     font:{ color:'#111', family:'Arial, sans-serif' },
     margin:{ l:0, r:0, t:40, b:0 },
-    title:{ text:'Spherical Triangle — Frequency Sweep', font:{ color:'#111', size:16 } },
+    title:{ text:title, font:{ color:'#111', size:16 } },
     scene:{
       xaxis:{ title:lastSweep.xTitle, color:'#111', gridcolor:'#ccc', zerolinecolor:'#999', backgroundcolor:'#fff', showbackground:true },
       yaxis:{ title:lastSweep.yTitle, color:'#111', gridcolor:'#ccc', zerolinecolor:'#999', backgroundcolor:'#fff', showbackground:true },
@@ -538,6 +548,49 @@ downloadBtn.addEventListener('click', async ()=>{
     hidden.remove();
     downloadBtn.disabled = false;
     downloadBtn.textContent = prevLabel;
+  }
+});
+
+downloadHeatBtn.addEventListener('click', async ()=>{
+  if (!plotted || !lastSweep){ statusLine.textContent = 'compute the sweep first'; return; }
+  downloadHeatBtn.disabled = true;
+  const prevLabel = downloadHeatBtn.textContent;
+  downloadHeatBtn.textContent = 'Building PDF…';
+  const title = plotTitleInput.value || 'Spherical Triangle — Frequency Sweep';
+
+  const hidden = document.createElement('div');
+  hidden.style.position = 'fixed';
+  hidden.style.left = '-99999px';
+  hidden.style.top = '0';
+  hidden.style.width = '1200px';
+  hidden.style.height = '900px';
+  document.body.appendChild(hidden);
+
+  Plotly.newPlot(hidden, [{
+    type: 'heatmap',
+    x: lastSweep.x, y: lastSweep.y, z: lastSweep.z,
+    colorscale: [[0,'#3c5aff'],[0.5,'#ffffff'],[1,'#ff3c3c']],
+    colorbar: { title:{ text:'Integral result', font:{ color:'#111' } }, tickfont:{ color:'#111' }, outlinecolor:'#999', outlinewidth:1 }
+  }], {
+    paper_bgcolor:'#ffffff', plot_bgcolor:'#ffffff',
+    font:{ color:'#111', family:'Arial, sans-serif' },
+    margin:{ l:100, r:20, t:60, b:70 },
+    title:{ text:title + ' — heatmap', font:{ color:'#111', size:16 } },
+    xaxis:{ title:lastSweep.xTitle, color:'#111', gridcolor:'#ddd', zeroline:false },
+    yaxis:{ title:lastSweep.yTitle, color:'#111', gridcolor:'#ddd', zeroline:false }
+  }, { responsive:false, displaylogo:false });
+
+  try{
+    const dataUrl = await Plotly.toImage(hidden, { format:'png', width:1200, height:900, scale:2 });
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:'landscape', unit:'pt', format:[1200,900] });
+    doc.addImage(dataUrl, 'PNG', 0, 0, 1200, 900);
+    doc.save('triangle_heatmap_frequencies.pdf');
+  } finally {
+    Plotly.purge(hidden);
+    hidden.remove();
+    downloadHeatBtn.disabled = false;
+    downloadHeatBtn.textContent = prevLabel;
   }
 });
 </script>
