@@ -147,7 +147,7 @@
           <div><label>Lambda sign</label>
             <select id="p1lambda"><option value="1">+</option><option value="0">×</option></select>
           </div>
-          <div><label>Frequency of GW1</label>
+          <div><label>Frequency of GW1 (nHz)</label>
             <input type="number" step="0.01" id="p1m" value="1">
           </div>
         </div>
@@ -165,7 +165,7 @@
           <div><label>Lambda sign</label>
             <select id="p2lambda"><option value="1">+</option><option value="0">×</option></select>
           </div>
-          <div><label>Frequency of GW2</label>
+          <div><label>Frequency of GW2 (nHz)</label>
             <input type="number" step="0.01" id="p2m" value="1">
           </div>
         </div>
@@ -183,7 +183,7 @@
           <div><label>Lambda sign</label>
             <select id="p3lambda"><option value="1">+</option><option value="0">×</option></select>
           </div>
-          <div><label>Frequency of GW3</label>
+          <div><label>Frequency of GW3 (nHz)</label>
             <input type="number" step="0.01" id="p3m" value="1">
           </div>
         </div>
@@ -233,6 +233,9 @@
 
     <div class="panel">
       <h2>HEALPix maps (Mollweide projection)</h2>
+      <label>Plot title (used on-screen and in the downloaded PDF)</label>
+      <input type="text" id="plotTitle" value="Spherical Triangle — Sky Map" style="margin-bottom:10px;">
+      <h3 id="plotTitleDisplay" style="font-family:'Space Grotesk', sans-serif; font-size:15px; color:var(--text); margin:0 0 10px;">Spherical Triangle — Sky Map</h3>
       <div class="heatmap-grid">
         <div class="heatmap-block">
           <label>Intensity gradient (blue → white → red, scaled to max|value|)</label>
@@ -563,6 +566,60 @@ function vecToAngles(v){
   return [theta, phi];
 }
 
+// Graticola (meridiani ogni 60°, paralleli ogni 30°) — riusata sia a schermo
+// che nell'export. "project" converte (theta,phi) in coordinate canvas.
+function drawGraticule(ctx, project, lineColor, labelColor, drawLabels, fontSize){
+  ctx.save();
+  ctx.strokeStyle = lineColor;
+  ctx.lineWidth = 1.1;
+  ctx.font = (fontSize||11) + 'px Arial, sans-serif';
+  for (let lonDeg=0; lonDeg<360; lonDeg+=60){
+    ctx.beginPath();
+    let first = true;
+    for (let latDeg=-89; latDeg<=89; latDeg+=2){
+      const theta=(90-latDeg)*Math.PI/180, phi=lonDeg*Math.PI/180;
+      const [px,py]=project(theta,phi);
+      if (first){ ctx.moveTo(px,py); first=false; } else ctx.lineTo(px,py);
+    }
+    ctx.stroke();
+    if (drawLabels){
+      const [lx,ly]=project(Math.PI/2, lonDeg*Math.PI/180);
+      ctx.fillStyle=labelColor; ctx.textAlign='center';
+      ctx.fillText(lonDeg+'°', lx, ly-6);
+    }
+  }
+  for (let latDeg=-60; latDeg<=60; latDeg+=30){
+    ctx.beginPath();
+    let first = true;
+    for (let lonDeg=0; lonDeg<=360; lonDeg+=4){
+      const theta=(90-latDeg)*Math.PI/180, phi=lonDeg*Math.PI/180;
+      const [px,py]=project(theta,phi);
+      if (first){ ctx.moveTo(px,py); first=false; } else ctx.lineTo(px,py);
+    }
+    ctx.stroke();
+    if (drawLabels){
+      const [lx,ly]=project((90-latDeg)*Math.PI/180, 0.0001);
+      ctx.fillStyle=labelColor; ctx.textAlign='right';
+      ctx.fillText(latDeg+'°', lx-8, ly+4);
+    }
+  }
+  ctx.restore();
+}
+
+// Testo nero con alone bianco: resta leggibile sia su sfondo nero (schermo)
+// che su sfondo bianco (PDF esportato).
+function drawHaloText(ctx, text, x, y, align, fontSize){
+  ctx.save();
+  ctx.textAlign = align || 'left';
+  ctx.font = 'bold ' + (fontSize||12) + 'px Arial, sans-serif';
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#ffffff';
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = '#000000';
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
 function drawHeatmap(canvas, thetas, phis, heatmap, mode, trianglePts){
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
@@ -580,13 +637,19 @@ function drawHeatmap(canvas, thetas, phis, heatmap, mode, trianglePts){
     ctx.arc(px, py, r, 0, 2*Math.PI);
     ctx.fill();
   }
+  // Graticola disegnata SOPRA i dati, ben visibile su sfondo scuro.
+  const screenProject = (theta, phi)=>{
+    const [x, y] = mollweideXY(theta, phi);
+    return [((x/(2*Math.sqrt(2))) + 1) / 2 * W, (1 - ((y/Math.sqrt(2)) + 1) / 2) * H];
+  };
+  drawGraticule(ctx, screenProject, 'rgba(255,255,255,0.4)', 'rgba(255,255,255,0.75)', true, Math.max(10, Math.round(W/90)));
+
   if (trianglePts && trianglePts.length){
     const starR = Math.max(6, Math.round(W/70));
-    trianglePts.forEach(({theta, phi, color})=>{
-      const [x, y] = mollweideXY(theta, phi);
-      const px = ((x/(2*Math.sqrt(2))) + 1) / 2 * W;
-      const py = (1 - ((y/Math.sqrt(2)) + 1) / 2) * H;
+    trianglePts.forEach(({theta, phi, color, label})=>{
+      const [px, py] = screenProject(theta, phi);
       drawStar(ctx, px, py, starR, color);
+      if (label) drawHaloText(ctx, label, px + starR + 5, py + 4, 'left', Math.max(11, Math.round(W/85)));
     });
   }
   return maxAbs;
@@ -629,49 +692,6 @@ function buildExportCanvas(thetas, phis, heatmap, mode, trianglePts, titleText){
   ctx.textAlign = 'center';
   ctx.fillText(titleText, W/2, 40);
 
-  // Graticola: meridiani ogni 60°, paralleli ogni 30°, con etichette in gradi.
-  ctx.strokeStyle = '#bbb';
-  ctx.lineWidth = 1;
-  ctx.font = '12px Arial, sans-serif';
-
-  for (let lonDeg=0; lonDeg<360; lonDeg+=60){
-    ctx.beginPath();
-    let first = true;
-    for (let latDeg=-89; latDeg<=89; latDeg+=2){
-      const theta = (90-latDeg)*Math.PI/180, phi = lonDeg*Math.PI/180;
-      const [px,py] = toCanvas(theta, phi);
-      if (first){ ctx.moveTo(px,py); first=false; } else ctx.lineTo(px,py);
-    }
-    ctx.stroke();
-    const [lx, ly] = toCanvas(Math.PI/2, lonDeg*Math.PI/180);
-    ctx.fillStyle = '#555';
-    ctx.textAlign = 'center';
-    ctx.fillText(lonDeg+'°', lx, ly-6);
-  }
-  for (let latDeg=-60; latDeg<=60; latDeg+=30){
-    ctx.beginPath();
-    let first = true;
-    for (let lonDeg=0; lonDeg<=360; lonDeg+=4){
-      const theta = (90-latDeg)*Math.PI/180, phi = lonDeg*Math.PI/180;
-      const [px,py] = toCanvas(theta, phi);
-      if (first){ ctx.moveTo(px,py); first=false; } else ctx.lineTo(px,py);
-    }
-    ctx.stroke();
-    const [lx, ly] = toCanvas((90-latDeg)*Math.PI/180, 0.0001);
-    ctx.fillStyle = '#555';
-    ctx.textAlign = 'right';
-    ctx.fillText(latDeg+'°', lx-8, ly+4);
-  }
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#333';
-  ctx.font = '13px Arial, sans-serif';
-  ctx.fillText('Longitude φ (deg)', W/2, marginTop + mapH + 20);
-  ctx.save();
-  ctx.translate(20, marginTop + mapH/2);
-  ctx.rotate(-Math.PI/2);
-  ctx.fillText('Latitude (deg)', 0, 0);
-  ctx.restore();
-
   // Punti (stesso colore usato a schermo, con un sottile bordo scuro per
   // restare visibili anche dove il colore si avvicina al bianco).
   let maxAbs = 1e-12;
@@ -687,11 +707,25 @@ function buildExportCanvas(thetas, phis, heatmap, mode, trianglePts, titleText){
     ctx.strokeStyle = 'rgba(0,0,0,0.3)';
     ctx.stroke();
   }
+
+  // Graticola disegnata SOPRA i punti, ben marcata e con etichette in gradi.
+  drawGraticule(ctx, toCanvas, '#777', '#333', true, 13);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#333';
+  ctx.font = '13px Arial, sans-serif';
+  ctx.fillText('Longitude φ (deg)', W/2, marginTop + mapH + 20);
+  ctx.save();
+  ctx.translate(20, marginTop + mapH/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText('Latitude (deg)', 0, 0);
+  ctx.restore();
+
   if (trianglePts && trianglePts.length){
     const starR = Math.max(7, Math.round(mapW/70));
-    trianglePts.forEach(({theta, phi, color})=>{
+    trianglePts.forEach(({theta, phi, color, label})=>{
       const [px, py] = toCanvas(theta, phi);
       drawStar(ctx, px, py, starR, color);
+      if (label) drawHaloText(ctx, label, px + starR + 6, py + 5, 'left', 14);
     });
   }
 
@@ -778,29 +812,37 @@ const pointColors = ['#ff5c7a', '#5ec8ff', '#ffd25e'];
 
 let lastCompute = null;
 
+const plotTitleInput = document.getElementById('plotTitle');
+const plotTitleDisplay = document.getElementById('plotTitleDisplay');
+plotTitleInput.addEventListener('input', ()=>{ plotTitleDisplay.textContent = plotTitleInput.value || 'Spherical Triangle — Sky Map'; });
+
 downloadGradBtn.addEventListener('click', ()=>{
   if (!lastCompute){ resultMeta.textContent = 'run the computation first'; return; }
+  const title = plotTitleInput.value || 'Spherical Triangle — Sky Map';
   exportHeatmapPdf(lastCompute.thetas, lastCompute.phis, lastCompute.heatmap, 'grad', lastCompute.triPts,
-    'Spherical Triangle — Intensity Gradient', 'heatmap_gradient.pdf', downloadGradBtn);
+    title, 'heatmap_gradient.pdf', downloadGradBtn);
 });
 downloadSignBtn.addEventListener('click', ()=>{
   if (!lastCompute){ resultMeta.textContent = 'run the computation first'; return; }
+  const title = plotTitleInput.value || 'Spherical Triangle — Sky Map';
   exportHeatmapPdf(lastCompute.thetas, lastCompute.phis, lastCompute.heatmap, 'sign', lastCompute.triPts,
-    'Spherical Triangle — Sign Map', 'heatmap_sign.pdf', downloadSignBtn);
+    title, 'heatmap_sign.pdf', downloadSignBtn);
 });
 
 function fmt(v){ return v.toExponential(3); }
 
-function buildTrianglePts(p1,p2,p3,lambda1,lambda2,lambda3){
+function buildTrianglePts(p1,p2,p3,lambda1,lambda2,lambda3,mf1,mf2,mf3){
   const pol = (l)=> l ? '+' : '×';
+  const freqs = [mf1,mf2,mf3], lambdas = [lambda1,lambda2,lambda3];
   const pts = [p1,p2,p3].map((p,i)=>{
     const [theta, phi] = vecToAngles(p);
-    return { theta, phi, color: pointColors[i] };
+    const label = `P${i+1}  ${pol(lambdas[i])}  ${freqs[i].toFixed(2)} nHz`;
+    return { theta, phi, color: pointColors[i], label };
   });
   triLegend.innerHTML =
-    `<span style="color:${pointColors[0]}">★ P1</span> — polarization ${pol(lambda1)}<br>` +
-    `<span style="color:${pointColors[1]}">★ P2</span> — polarization ${pol(lambda2)}<br>` +
-    `<span style="color:${pointColors[2]}">★ P3</span> — polarization ${pol(lambda3)}`;
+    `<span style="color:${pointColors[0]}">★ P1</span> — polarization ${pol(lambda1)}, ${mf1.toFixed(2)} nHz<br>` +
+    `<span style="color:${pointColors[1]}">★ P2</span> — polarization ${pol(lambda2)}, ${mf2.toFixed(2)} nHz<br>` +
+    `<span style="color:${pointColors[2]}">★ P3</span> — polarization ${pol(lambda3)}, ${mf3.toFixed(2)} nHz`;
   return pts;
 }
 
@@ -838,7 +880,7 @@ calcBtn.addEventListener('click', async ()=>{
     legendSignMin.textContent = '−1';
     legendSignMax.textContent = '+1';
 
-    const triPts = showTriChk.checked ? buildTrianglePts(p1,p2,p3,lambda1,lambda2,lambda3) : [];
+    const triPts = showTriChk.checked ? buildTrianglePts(p1,p2,p3,lambda1,lambda2,lambda3,mf1,mf2,mf3) : [];
     drawHeatmap(canvasGrad, thetas, phis, heatmap, 'grad', triPts);
     drawHeatmap(canvasSign, thetas, phis, heatmap, 'sign', triPts);
     lastCompute = { thetas, phis, heatmap, triPts };
