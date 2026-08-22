@@ -1,75 +1,3 @@
-
-Claude ha terminato la risposta
-No voglio i codici da caricare su github per il sito
-
-
-Elaborato per 1m 24s
-Elaborato per 1m 24s
-Capito, niente notebook — ti ricostruisco i 4 file del sito da caricare su GitHub, basandomi su tutte le modifiche fatte in questa conversazione (li avevo persi dal mio spazio di lavoro per un riavvio dell'ambiente).
-
-
-Eseguiti 3 comandi · 2 note
-Eseguiti 3 comandi · 2 note
-MAndami questi codici in formato hdml in modo che io possa caricarli sul mio sito su github. voglio i link tra le pagine in modo che restino visibili.
-
-
-Eseguito un comando
-Eseguito un comando
-I ho già ricostruito index.html, page2.html, page3.html. Mi manca page4.html — la ricreo ora, con le stesse icone di navigazione fisse (sticky) delle altre.
-
-
-Eseguiti 2 comandi, file letto, una memoria letta · 2 note
-Eseguiti 2 comandi, file letto, una memoria letta · 2 note
-Ecco i 4 file HTML pronti per GitHub, L:
-
-index.html — sfera 3D, mappe HEALPix (gradiente + segno), stelle P1/P2/P3 etichettate, download PDF
-page2.html — sweep 3D sugli angoli
-page3.html — sweep 3D sulle frequenze
-page4.html — tutte le 8 combinazioni di polarizzazione + somma
-Navigazione: ogni header ha position: sticky; top: 0; con sfondo opaco dietro — i link restano visibili in cima allo schermo anche scorrendo la pagina in basso dopo un calcolo, non serve mai tornare su. Ho verificato che i link siano tutti incrociati correttamente (ogni pagina linka le altre tre) e controllato la sintassi JavaScript di tutti e 4 i file: nessun errore.
-
-Carica tutti e 4 nella root dello stesso repository con questi nomi esatti — i link tra le pagine sono relativi, quindi funzionano subito su GitHub Pages senza altra configurazione.
-
-
-Index
-Codice · HTML 
-
-Page2
-Codice · HTML 
-
-Page3
-Codice · HTML 
-
-Page4
-Codice · HTML 
-Voglio che il cambio tra una pagina e l'altra funzioni semopre tramite tasto. voglio che le icone però rimangano sempre presenti all interno della pagina ma metta solo in evidenza quella in cui l'utente si trova
-
-
-8 file modificati, eseguiti 2 comandi, ha visualizzato 2 file · 5 note
-8 file modificati, eseguiti 2 comandi, ha visualizzato 2 file · 5 note
-Fatto, L. Ora ogni pagina mostra sempre tutti e 4 i link ("Sky maps", "Angle sweep", "Frequency sweep", "Polarizations"), e quello relativo alla pagina in cui ti trovi è evidenziato con uno sfondo pieno (colore accento, testo scuro, grassetto) invece del semplice bordo — così capisci sempre dove sei senza dover cliccare via da nessuna parte. Il link della pagina corrente non è cliccabile (non serve navigare verso se stessi), gli altri tre restano attivi come prima.
-
-
-Index
-Codice · HTML 
-
-Page2
-Codice · HTML 
-
-Page3
-Codice · HTML 
-
-Page4
-Codice · HTML 
-
-
-
-
-
-Claude è un'AI e può commettere errori. Verifica le risposte.
-
-
-Page3 · HTML
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -162,7 +90,7 @@ Page3 · HTML
 </style>
 </head>
 <body>
- 
+
 <header>
   <h1>Spherical Triangle — Frequency Sweep</h1>
   <span class="sub">integral result vs. two GW frequencies, third frequency held fixed</span>
@@ -173,7 +101,7 @@ Page3 · HTML
     <a href="page4.html" class="navlink">Polarizations</a>
   </div>
 </header>
- 
+
 <main>
   <!-- LEFT COLUMN: parameters -->
   <div>
@@ -213,11 +141,11 @@ Page3 · HTML
         <select id="p3lambda"><option value="1">+</option><option value="0">×</option></select>
       </fieldset>
     </div>
- 
+
     <div class="panel">
       <h2>Frequency sweep</h2>
       <div class="field-note" style="margin-bottom:10px;">Pick which GW frequency stays fixed. The other two are swept and become the x/y axes of the 3D plot.</div>
- 
+
       <fieldset id="fset1">
         <div class="freq-head">
           <span><span class="dot p1"></span> Frequency of GW1 (nHz)</span>
@@ -236,7 +164,7 @@ Page3 · HTML
           </div>
         </div>
       </fieldset>
- 
+
       <fieldset id="fset2">
         <div class="freq-head">
           <span><span class="dot p2"></span> Frequency of GW2 (nHz)</span>
@@ -255,7 +183,7 @@ Page3 · HTML
           </div>
         </div>
       </fieldset>
- 
+
       <fieldset id="fset3">
         <div class="freq-head">
           <span><span class="dot p3"></span> Frequency of GW3 (nHz)</span>
@@ -274,10 +202,10 @@ Page3 · HTML
           </div>
         </div>
       </fieldset>
- 
+
       <div class="field-note">Total evaluations = points(axis 1) × points(axis 2) — each one is a full HEALPix integral, so keep this modest.</div>
     </div>
- 
+
     <div class="panel">
       <h2>HEALPix integration parameters</h2>
       <div class="row2">
@@ -300,7 +228,7 @@ Page3 · HTML
       <div id="statusLine">no computation run yet</div>
     </div>
   </div>
- 
+
   <!-- RIGHT COLUMN: plot -->
   <div>
     <div class="panel">
@@ -315,12 +243,12 @@ Page3 · HTML
     </div>
   </div>
 </main>
- 
+
 <footer>
   Same underlying HEALPix integral as the other pages (brute_force_5.cpp port), evaluated once per (freq A, freq B) grid point.
   Vertical axis = integral result (includes the 8·π² correction factor). Points P1, P2, P3 and their polarizations are fixed here.
 </footer>
- 
+
 <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
@@ -331,7 +259,7 @@ function cross(a,b){ return [a[1]*b[2]-a[2]*b[1], -a[0]*b[2]+a[2]*b[0], a[0]*b[1
 function dot(a,b){ return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
 function norm(v){ return Math.sqrt(dot(v,v)); }
 function normalize(v){ const m=norm(v); return m>0 ? [v[0]/m,v[1]/m,v[2]/m] : [0,0,0]; }
- 
+
 function localFrame(om){
   let mm = cross([0,0,1], om);
   const modM = norm(mm);
@@ -379,7 +307,7 @@ function pix2angRing(nside, ipix){
   }
   return [theta, phi];
 }
- 
+
 let cachedNside = null, cachedOm = null;
 function getPixelDirs(nside){
   if (cachedNside === nside) return cachedOm;
@@ -392,12 +320,12 @@ function getPixelDirs(nside){
   cachedNside = nside; cachedOm = arr;
   return arr;
 }
- 
+
 function computeResult(nside, nAttorno, p1,p2,p3, lambda1,lambda2,lambda3, mf1,mf2,mf3){
   const oms = getPixelDirs(nside);
   const npix = oms.length;
   const pixelArea = 4*Math.PI/npix;
- 
+
   // Se le tre frequenze non rispettano la disuguaglianza triangolare, si
   // ritorna 0 invece di propagare NaN dagli acos() fuori dominio.
   const argGamma = (-mf3*mf3 + mf1*mf1 + mf2*mf2)/(2*mf1*mf2);
@@ -407,16 +335,16 @@ function computeResult(nside, nAttorno, p1,p2,p3, lambda1,lambda2,lambda3, mf1,m
   const beta  = Math.acos(argBeta);
   const sg=Math.sin(gamma), cg=Math.cos(gamma), sb=Math.sin(beta), cb=Math.cos(beta);
   const dAttorno = 2*Math.PI/nAttorno;
- 
+
   const freqSymmetric = Math.abs(mf2 - mf3) < 1e-12 * Math.max(1, Math.abs(mf2), Math.abs(mf3));
- 
+
   let sumHeat = 0;
   for (let idx=0; idx<npix; idx++){
     const om = oms[idx];
     const [m, n] = localFrame(om);
     const fg1 = shapeFg(p1, om, m, n, lambda1);
     if (fg1 === 0) continue;
- 
+
     const base_om2 = [
       [m[0]*sg - cg*om[0], m[1]*sg - cg*om[1], m[2]*sg - cg*om[2]],
       [-m[0]*sg - cg*om[0], -m[1]*sg - cg*om[1], -m[2]*sg - cg*om[2]]
@@ -425,7 +353,7 @@ function computeResult(nside, nAttorno, p1,p2,p3, lambda1,lambda2,lambda3, mf1,m
       [-m[0]*sb - cb*om[0], -m[1]*sb - cb*om[1], -m[2]*sb - cb*om[2]],
       [m[0]*sb - cb*om[0], m[1]*sb - cb*om[1], m[2]*sb - cb*om[2]]
     ];
- 
+
     let acc = 0;
     for (let k=0; k<nAttorno; k++){
       const ang = k*dAttorno;
@@ -452,13 +380,13 @@ function computeResult(nside, nAttorno, p1,p2,p3, lambda1,lambda2,lambda3, mf1,m
   }
   return sumHeat * pixelArea / (4*Math.PI*nAttorno) * (8*Math.PI*Math.PI);
 }
- 
+
 function linspace(minV, maxV, n){
   const arr = new Array(n);
   for (let i=0;i<n;i++) arr[i] = minV + (maxV-minV) * (n===1 ? 0 : i/(n-1));
   return arr;
 }
- 
+
 // ============================================================
 // POINT INPUTS
 // ============================================================
@@ -469,7 +397,7 @@ function readPoint(i){
   const z = parseFloat(document.getElementById(ids+'z').value) || 0;
   return normalize([x,y,z]);
 }
- 
+
 // ============================================================
 // FREQUENCY-SWEEP UI: toggle fixed/sweep blocks per radio choice
 // ============================================================
@@ -483,7 +411,7 @@ document.querySelectorAll('input[name=fixedFreq]').forEach(radio=>{
     });
   });
 });
- 
+
 // ============================================================
 // UI ORCHESTRATION
 // ============================================================
@@ -495,23 +423,23 @@ const downloadHeatBtn = document.getElementById('downloadHeatBtn');
 const plotTitleInput = document.getElementById('plotTitle');
 let plotted = false;
 let lastSweep = null;
- 
+
 calcBtn.addEventListener('click', async ()=>{
   calcBtn.disabled = true;
   prog.style.display = 'block';
   prog.value = 0;
   statusLine.textContent = 'computing…';
- 
+
   const p1 = readPoint(0), p2 = readPoint(1), p3 = readPoint(2);
   const lambda1 = document.getElementById('p1lambda').value === '1';
   const lambda2 = document.getElementById('p2lambda').value === '1';
   const lambda3 = document.getElementById('p3lambda').value === '1';
   const nside = parseInt(document.getElementById('nside').value, 10);
   const nAttorno = Math.max(1, Math.round(parseFloat(document.getElementById('nattorno').value) || 50));
- 
+
   const fixedIdx = parseInt(document.querySelector('input[name=fixedFreq]:checked').value, 10);
   const fixedVal = parseFloat(fsets[fixedIdx].querySelector('.fixedVal').value) || 1;
- 
+
   const sweepIdx = [0,1,2].filter(i => i !== fixedIdx); // [axisA, axisB]
   const sweepVals = sweepIdx.map(i=>{
     const fset = fsets[i];
@@ -522,14 +450,14 @@ calcBtn.addEventListener('click', async ()=>{
   });
   const [valsA, valsB] = sweepVals;
   const nA = valsA.length, nB = valsB.length;
- 
+
   const Z = new Array(nB);
   for (let j=0;j<nB;j++) Z[j] = new Array(nA).fill(0);
- 
+
   const total = nA * nB;
   let done = 0;
   const t0 = performance.now();
- 
+
   for (let j=0; j<nB; j++){
     for (let i=0; i<nA; i++){
       const freqs = [0,0,0];
@@ -542,13 +470,13 @@ calcBtn.addEventListener('click', async ()=>{
       if (done % 3 === 0) { statusLine.textContent = `computing… ${done}/${total}`; await new Promise(r=>setTimeout(r,0)); }
     }
   }
- 
+
   const dt = ((performance.now()-t0)/1000).toFixed(2);
   statusLine.textContent = `done — ${total} evaluations in ${dt}s (n_side=${nside}, n_attorno=${nAttorno})`;
- 
+
   const axisLabels = ['Frequency of GW1 (nHz)', 'Frequency of GW2 (nHz)', 'Frequency of GW3 (nHz)'];
   const plotTitle = plotTitleInput.value || 'Spherical Triangle — Frequency Sweep';
- 
+
   Plotly.newPlot('plotDiv', [{
     type: 'surface',
     x: valsA,
@@ -568,20 +496,20 @@ calcBtn.addEventListener('click', async ()=>{
       bgcolor:'#000'
     }
   }, { responsive:true, displaylogo:false });
- 
+
   lastSweep = { x: valsA, y: valsB, z: Z, xTitle: axisLabels[sweepIdx[0]], yTitle: axisLabels[sweepIdx[1]] };
   plotted = true;
   calcBtn.disabled = false;
   prog.style.display = 'none';
 });
- 
+
 downloadBtn.addEventListener('click', async ()=>{
   if (!plotted || !lastSweep){ statusLine.textContent = 'compute the sweep first'; return; }
   downloadBtn.disabled = true;
   const prevLabel = downloadBtn.textContent;
   downloadBtn.textContent = 'Building PDF…';
   const title = plotTitleInput.value || 'Spherical Triangle — Frequency Sweep';
- 
+
   const hidden = document.createElement('div');
   hidden.style.position = 'fixed';
   hidden.style.left = '-99999px';
@@ -589,7 +517,7 @@ downloadBtn.addEventListener('click', async ()=>{
   hidden.style.width = '1200px';
   hidden.style.height = '900px';
   document.body.appendChild(hidden);
- 
+
   Plotly.newPlot(hidden, [{
     type: 'surface',
     x: lastSweep.x, y: lastSweep.y, z: lastSweep.z,
@@ -608,7 +536,7 @@ downloadBtn.addEventListener('click', async ()=>{
       bgcolor:'#ffffff'
     }
   }, { responsive:false, displaylogo:false });
- 
+
   try{
     const dataUrl = await Plotly.toImage(hidden, { format:'png', width:1200, height:900, scale:2 });
     const { jsPDF } = window.jspdf;
@@ -622,14 +550,14 @@ downloadBtn.addEventListener('click', async ()=>{
     downloadBtn.textContent = prevLabel;
   }
 });
- 
+
 downloadHeatBtn.addEventListener('click', async ()=>{
   if (!plotted || !lastSweep){ statusLine.textContent = 'compute the sweep first'; return; }
   downloadHeatBtn.disabled = true;
   const prevLabel = downloadHeatBtn.textContent;
   downloadHeatBtn.textContent = 'Building PDF…';
   const title = plotTitleInput.value || 'Spherical Triangle — Frequency Sweep';
- 
+
   const hidden = document.createElement('div');
   hidden.style.position = 'fixed';
   hidden.style.left = '-99999px';
@@ -637,7 +565,7 @@ downloadHeatBtn.addEventListener('click', async ()=>{
   hidden.style.width = '1200px';
   hidden.style.height = '900px';
   document.body.appendChild(hidden);
- 
+
   Plotly.newPlot(hidden, [{
     type: 'heatmap',
     x: lastSweep.x, y: lastSweep.y, z: lastSweep.z,
@@ -651,7 +579,7 @@ downloadHeatBtn.addEventListener('click', async ()=>{
     xaxis:{ title:lastSweep.xTitle, color:'#111', gridcolor:'#ddd', zeroline:false },
     yaxis:{ title:lastSweep.yTitle, color:'#111', gridcolor:'#ddd', zeroline:false }
   }, { responsive:false, displaylogo:false });
- 
+
   try{
     const dataUrl = await Plotly.toImage(hidden, { format:'png', width:1200, height:900, scale:2 });
     const { jsPDF } = window.jspdf;
@@ -668,7 +596,3 @@ downloadHeatBtn.addEventListener('click', async ()=>{
 </script>
 </body>
 </html>
- 
-
-
-
