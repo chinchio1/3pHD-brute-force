@@ -35,9 +35,14 @@
     margin:0; letter-spacing:0.3px;
   }
   header span.sub{ color:var(--muted); font-size:12px; }
-  header a.navlink{
-    margin-left:auto; color:var(--accent); text-decoration:none; font-size:12px;
+  .navlinks{ margin-left:auto; display:flex; gap:8px; flex-wrap:wrap; }
+  .navlink{
+    color:var(--accent); text-decoration:none; font-size:12px;
     border:1px solid var(--line); padding:6px 10px; border-radius:6px;
+  }
+  .navlink.active{
+    background:var(--accent); color:#06110d; border-color:var(--accent);
+    font-weight:700; pointer-events:none;
   }
   main{
     flex:1; display:grid; grid-template-columns: 380px 1fr; gap:16px;
@@ -56,7 +61,7 @@
   .dot{ width:10px; height:10px; border-radius:50%; flex:none; }
   .dot.p1{background:var(--p1);} .dot.p2{background:var(--p2);} .dot.p3{background:var(--p3);}
   label{ display:block; color:var(--muted); font-size:11px; margin:6px 0 3px; }
-  input[type=number], select{
+  input[type=number], input[type=text], select{
     width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
     padding:6px 8px; border-radius:6px; font-family:inherit; font-size:12px;
   }
@@ -87,10 +92,11 @@
 <header>
   <h1>Spherical Triangle — 3D Sweep</h1>
   <span class="sub">integral result vs. two pulsar sky positions, third pulsar fixed at the pole</span>
-  <div style="margin-left:auto; display:flex; gap:8px;">
-    <a href="index.html" style="color:var(--accent); text-decoration:none; font-size:12px; border:1px solid var(--line); padding:6px 10px; border-radius:6px;">← sky maps</a>
-    <a href="page3.html" style="color:var(--accent); text-decoration:none; font-size:12px; border:1px solid var(--line); padding:6px 10px; border-radius:6px;">frequency sweep →</a>
-    <a href="page4.html" style="color:var(--accent); text-decoration:none; font-size:12px; border:1px solid var(--line); padding:6px 10px; border-radius:6px;">polarizations →</a>
+  <div class="navlinks">
+    <a href="index.html" class="navlink">Sky maps</a>
+    <a href="page2.html" class="navlink active">Angle sweep</a>
+    <a href="page3.html" class="navlink">Frequency sweep</a>
+    <a href="page4.html" class="navlink">Polarizations</a>
   </div>
 </header>
 
@@ -252,7 +258,6 @@ function pix2angRing(nside, ipix){
   return [theta, phi];
 }
 
-// Precompute pixel directions once per n_side (reused across every grid point).
 let cachedNside = null, cachedOm = null;
 function getPixelDirs(nside){
   if (cachedNside === nside) return cachedOm;
@@ -266,8 +271,6 @@ function getPixelDirs(nside){
   return arr;
 }
 
-// Scalar-only version of the integral: same math as the sky-map page's computeHeatmap,
-// but returns just the final number (no per-pixel arrays kept around).
 function computeResult(nside, nAttorno, p1,p2,p3, lambda1,lambda2,lambda3, mf1,mf2,mf3){
   const oms = getPixelDirs(nside);
   const npix = oms.length;
@@ -282,6 +285,8 @@ function computeResult(nside, nAttorno, p1,p2,p3, lambda1,lambda2,lambda3, mf1,m
   const beta  = Math.acos(argBeta);
   const sg=Math.sin(gamma), cg=Math.cos(gamma), sb=Math.sin(beta), cb=Math.cos(beta);
   const dAttorno = 2*Math.PI/nAttorno;
+
+  const freqSymmetric = Math.abs(mf2 - mf3) < 1e-12 * Math.max(1, Math.abs(mf2), Math.abs(mf3));
 
   let sumHeat = 0;
   for (let idx=0; idx<npix; idx++){
@@ -298,11 +303,6 @@ function computeResult(nside, nAttorno, p1,p2,p3, lambda1,lambda2,lambda3, mf1,m
       [-m[0]*sb - cb*om[0], -m[1]*sb - cb*om[1], -m[2]*sb - cb*om[2]],
       [m[0]*sb - cb*om[0], m[1]*sb - cb*om[1], m[2]*sb - cb*om[2]]
     ];
-
-    // Scorciatoia: se le frequenze di P2 e P3 coincidono, gamma == beta e i due
-    // rami i=0/i=1 producono lo stesso contributo — si calcola una volta sola
-    // e si raddoppia, dimezzando il costo del ciclo interno.
-    const freqSymmetric = Math.abs(mf2 - mf3) < 1e-12 * Math.max(1, Math.abs(mf2), Math.abs(mf3));
 
     let acc = 0;
     for (let k=0; k<nAttorno; k++){
@@ -488,8 +488,6 @@ downloadHeatBtn.addEventListener('click', async ()=>{
   downloadHeatBtn.textContent = 'Building PDF…';
   const title = plotTitleInput.value || 'Spherical Triangle — 3D Sweep (angles)';
 
-  // Same data as the 3D surface, but as a flat top-down 2D heatmap —
-  // white background, visible axes, colorbar legend.
   const hidden = document.createElement('div');
   hidden.style.position = 'fixed';
   hidden.style.left = '-99999px';
