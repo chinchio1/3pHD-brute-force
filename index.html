@@ -38,6 +38,15 @@
     margin:0; letter-spacing:0.3px;
   }
   header span.sub{ color:var(--muted); font-size:12px; }
+  .navlinks{ margin-left:auto; display:flex; gap:8px; flex-wrap:wrap; }
+  .navlink{
+    color:var(--accent); text-decoration:none; font-size:12px;
+    border:1px solid var(--line); padding:6px 10px; border-radius:6px;
+  }
+  .navlink.active{
+    background:var(--accent); color:#06110d; border-color:var(--accent);
+    font-weight:700; pointer-events:none;
+  }
   main{
     flex:1; display:grid; grid-template-columns: 380px 1fr; gap:16px;
     padding:16px 24px 32px;
@@ -55,7 +64,7 @@
   .dot{ width:10px; height:10px; border-radius:50%; flex:none; }
   .dot.p1{background:var(--p1);} .dot.p2{background:var(--p2);} .dot.p3{background:var(--p3);}
   label{ display:block; color:var(--muted); font-size:11px; margin:6px 0 3px; }
-  input[type=number], select{
+  input[type=number], input[type=text], select{
     width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
     padding:6px 8px; border-radius:6px; font-family:inherit; font-size:12px;
   }
@@ -83,6 +92,8 @@
   .hint{ position:absolute; bottom:6px; left:8px; color:var(--muted); font-size:10px; pointer-events:none; }
   progress{ width:100%; height:8px; accent-color:var(--accent); margin-top:10px; }
   .field-note{ color:var(--muted); font-size:10px; margin-top:2px; }
+  .checkbox-row{ display:flex; align-items:center; gap:6px; margin:8px 0; color:var(--muted); font-size:11px; }
+  .btn-row{ display:grid; grid-template-columns:1fr; gap:8px; margin-top:8px; }
   #resultBox{
     font-family:'Space Grotesk', sans-serif; font-size:26px; font-weight:700; color:var(--accent);
     margin:4px 0 2px;
@@ -94,13 +105,6 @@
   .legend-bar .swatch{ width:120px; height:10px; border-radius:4px; }
   .grad-swatch{ background:linear-gradient(90deg,var(--neg),#ffffff,var(--pos)); border:1px solid var(--line); }
   .sign-swatch{ background:linear-gradient(90deg,var(--neg) 0%,var(--neg) 50%,var(--pos) 50%,var(--pos) 100%); border:1px solid var(--line); }
-  textarea{
-    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
-    padding:6px 8px; border-radius:6px; font-family:inherit; font-size:11px; resize:vertical;
-  }
-  .checkbox-row{ display:flex; align-items:center; gap:6px; margin:8px 0; color:var(--muted); font-size:11px; }
-  .btn-row{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
-  .btn-row button{ font-size:11px; padding:8px; }
   footer{ padding:14px 24px; color:var(--muted); font-size:11px; border-top:1px solid var(--line); }
   a{ color:var(--accent); }
 </style>
@@ -110,10 +114,11 @@
 <header>
   <h1>Spherical Triangle</h1>
   <span class="sub">HEALPix integral of the product of three shape functions — web port of brute_force_5.cpp</span>
-  <div style="margin-left:auto; display:flex; gap:8px;">
-    <a href="page2.html" style="color:var(--accent); text-decoration:none; font-size:12px; border:1px solid var(--line); padding:6px 10px; border-radius:6px;">3D sweep (angles) →</a>
-    <a href="page3.html" style="color:var(--accent); text-decoration:none; font-size:12px; border:1px solid var(--line); padding:6px 10px; border-radius:6px;">3D sweep (frequencies) →</a>
-    <a href="page4.html" style="color:var(--accent); text-decoration:none; font-size:12px; border:1px solid var(--line); padding:6px 10px; border-radius:6px;">polarizations →</a>
+  <div class="navlinks">
+    <a href="index.html" class="navlink active">Sky maps</a>
+    <a href="page2.html" class="navlink">Angle sweep</a>
+    <a href="page3.html" class="navlink">Frequency sweep</a>
+    <a href="page4.html" class="navlink">Polarizations</a>
   </div>
 </header>
 
@@ -296,7 +301,6 @@ function rotateVectors2(p1, p2, axis, cosA, sinA){
   return [np1, np2];
 }
 
-// HEALPix RING scheme (pix2ang), 0-indexed, standard Gorski et al. formulation.
 function pix2angRing(nside, ipix){
   const npix = 12*nside*nside;
   const ncap = 2*nside*(nside-1);
@@ -345,6 +349,8 @@ async function computeHeatmap(nside, nAttorno, p1,p2,p3, lambda1,lambda2,lambda3
   const phis = new Float64Array(npix);
   const dAttorno = 2*Math.PI/nAttorno;
 
+  const freqSymmetric = Math.abs(mf2 - mf3) < 1e-12 * Math.max(1, Math.abs(mf2), Math.abs(mf3));
+
   let sumHeat = 0;
   const CHUNK = 48;
 
@@ -372,8 +378,6 @@ async function computeHeatmap(nside, nAttorno, p1,p2,p3, lambda1,lambda2,lambda3
       // in frequenza, con P1 il punto "diverso"), gamma == beta e i due rami
       // i=0/i=1 producono lo stesso contributo — si calcola una volta sola
       // e si raddoppia, dimezzando il costo del ciclo interno.
-      const freqSymmetric = Math.abs(mf2 - mf3) < 1e-12 * Math.max(1, Math.abs(mf2), Math.abs(mf3));
-
       let acc = 0;
       for (let k=0; k<nAttorno; k++){
         const ang = k*dAttorno;
@@ -655,13 +659,6 @@ function drawHeatmap(canvas, thetas, phis, heatmap, mode, trianglePts){
   return maxAbs;
 }
 
-function downloadCanvas(canvas, filename){
-  const link = document.createElement('a');
-  link.download = filename;
-  link.href = canvas.toDataURL('image/png');
-  link.click();
-}
-
 function fmtExport(v){ return v.toExponential(3); }
 
 // Costruisce, su un canvas separato non collegato allo schermo, una versione
@@ -806,9 +803,9 @@ const legendSignMin = document.getElementById('legendSignMin');
 const legendSignMax = document.getElementById('legendSignMax');
 const downloadGradBtn = document.getElementById('downloadGrad');
 const downloadSignBtn = document.getElementById('downloadSign');
-const showTriChk = document.getElementById('showTrianglePts');
 const triLegend = document.getElementById('triLegend');
 const pointColors = ['#ff5c7a', '#5ec8ff', '#ffd25e'];
+const showTriChk = document.getElementById('showTrianglePts');
 
 let lastCompute = null;
 
