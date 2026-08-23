@@ -548,7 +548,9 @@ animate();
 // 4) HEALPIX-STYLE OVAL MAP (Mollweide equal-area projection)
 // ============================================================
 function mollweideXY(theta, phi){
-  const lambda = phi - Math.PI;       // longitude in [-pi, pi)
+  let lambda = -phi;                  // longitude increases leftward (astro convention)
+  if (lambda < -Math.PI) lambda += 2*Math.PI;
+  if (lambda > Math.PI) lambda -= 2*Math.PI;
   const lat = Math.PI/2 - theta;      // latitude in [-pi/2, pi/2]
   let t = lat;
   if (Math.abs(Math.abs(lat) - Math.PI/2) > 1e-9){
@@ -606,7 +608,7 @@ function rasterizeHealpixMap(ctx, offsetX, offsetY, mapW, mapH, heatmap, nside, 
       const lat = Math.asin(Math.max(-1, Math.min(1, (2*t + Math.sin(2*t))/Math.PI)));
       const cosT = Math.cos(t);
       const lambda = Math.abs(cosT) < 1e-9 ? 0 : (nx*Math.PI)/cosT;
-      let phi = lambda + Math.PI;
+      let phi = -lambda;
       phi = ((phi % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
       const theta = Math.PI/2 - lat;
       const pidx = ang2pixRing(nside, theta, phi);
@@ -826,12 +828,12 @@ function buildExportCanvas(thetas, phis, heatmap, mode, trianglePts, titleText, 
   return canvas;
 }
 
-async function exportHeatmapPdf(thetas, phis, heatmap, mode, trianglePts, titleText, filename, btn){
+async function exportHeatmapPdf(thetas, phis, heatmap, mode, trianglePts, titleText, filename, btn, nside){
   const prevLabel = btn.textContent;
   btn.disabled = true;
   btn.textContent = 'Building PDF…';
   try{
-    const exportCanvas = buildExportCanvas(thetas, phis, heatmap, mode, trianglePts, titleText);
+    const exportCanvas = buildExportCanvas(thetas, phis, heatmap, mode, trianglePts, titleText, nside);
     const dataUrl = exportCanvas.toDataURL('image/png');
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation:'landscape', unit:'pt', format:[exportCanvas.width, exportCanvas.height] });
@@ -872,13 +874,13 @@ downloadGradBtn.addEventListener('click', ()=>{
   if (!lastCompute){ resultMeta.textContent = 'run the computation first'; return; }
   const title = plotTitleInput.value || 'Spherical Triangle — Sky Map';
   exportHeatmapPdf(lastCompute.thetas, lastCompute.phis, lastCompute.heatmap, 'grad', lastCompute.triPts,
-    title, 'heatmap_gradient.pdf', downloadGradBtn);
+    title, 'heatmap_gradient.pdf', downloadGradBtn, lastCompute.nside);
 });
 downloadSignBtn.addEventListener('click', ()=>{
   if (!lastCompute){ resultMeta.textContent = 'run the computation first'; return; }
   const title = plotTitleInput.value || 'Spherical Triangle — Sky Map';
   exportHeatmapPdf(lastCompute.thetas, lastCompute.phis, lastCompute.heatmap, 'sign', lastCompute.triPts,
-    title, 'heatmap_sign.pdf', downloadSignBtn);
+    title, 'heatmap_sign.pdf', downloadSignBtn, lastCompute.nside);
 });
 
 function fmt(v){ return v.toExponential(3); }
@@ -933,9 +935,9 @@ calcBtn.addEventListener('click', async ()=>{
     legendSignMax.textContent = '+1';
 
     const triPts = showTriChk.checked ? buildTrianglePts(p1,p2,p3,lambda1,lambda2,lambda3,mf1,mf2,mf3) : [];
-    drawHeatmap(canvasGrad, thetas, phis, heatmap, 'grad', triPts);
-    drawHeatmap(canvasSign, thetas, phis, heatmap, 'sign', triPts);
-    lastCompute = { thetas, phis, heatmap, triPts };
+    drawHeatmap(canvasGrad, thetas, phis, heatmap, 'grad', triPts, nside);
+    drawHeatmap(canvasSign, thetas, phis, heatmap, 'sign', triPts, nside);
+    lastCompute = { thetas, phis, heatmap, triPts, nside };
   } catch(err){
     resultMeta.textContent = 'error: ' + err.message;
     console.error(err);
