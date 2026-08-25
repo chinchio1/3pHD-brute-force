@@ -128,7 +128,11 @@
     <div class="panel">
       <h2>Input sphere</h2>
       <div id="canvas3d-wrap">
-        <span class="hint">drag to rotate · click on the sphere to place the active point</span>
+        <span class="hint" id="sphereHint">drag to rotate</span>
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="editPointsToggle">
+        <label for="editPointsToggle" style="margin:0;">enable manual point editing (click on the sphere to move the active point)</label>
       </div>
       <div class="radio-select" id="activePointSelect">
         <input type="radio" name="active" id="act-p1" value="0" checked><label for="act-p1" style="color:var(--p1)">P1 active</label>
@@ -240,8 +244,8 @@
     <div class="panel">
       <h2>HEALPix maps (Mollweide projection)</h2>
       <label>Plot title (used on-screen and in the downloaded PDF)</label>
-      <input type="text" id="plotTitle" value="Spherical Triangle — Sky Map" style="margin-bottom:10px;">
-      <h3 id="plotTitleDisplay" style="font-family:'Space Grotesk', sans-serif; font-size:15px; color:var(--text); margin:0 0 10px;">Spherical Triangle — Sky Map</h3>
+      <input type="text" id="plotTitle" value="Spherical Integrand" style="margin-bottom:10px;">
+      <h3 id="plotTitleDisplay" style="font-family:'Space Grotesk', sans-serif; font-size:15px; color:var(--text); margin:0 0 10px;">Spherical Integrand</h3>
       <div class="heatmap-grid">
         <div class="heatmap-block">
           <label>Intensity gradient (blue → white → red, scaled to max|value|)</label>
@@ -517,7 +521,19 @@ updateMarkers();
 
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
+const editPointsToggle = document.getElementById('editPointsToggle');
+const sphereHint = document.getElementById('sphereHint');
+
+function updateSphereHint(){
+  sphereHint.textContent = editPointsToggle.checked
+    ? 'drag to rotate · click on the sphere to move the active point'
+    : 'drag to rotate — enable manual point editing to move points by clicking';
+}
+editPointsToggle.addEventListener('change', updateSphereHint);
+updateSphereHint();
+
 renderer.domElement.addEventListener('click', (ev)=>{
+  if (!editPointsToggle.checked) return;
   const rect = renderer.domElement.getBoundingClientRect();
   mouse.x = ((ev.clientX-rect.left)/rect.width)*2-1;
   mouse.y = -((ev.clientY-rect.top)/rect.height)*2+1;
@@ -569,22 +585,30 @@ function mollweideXY(theta, phi){
   return [x, y]; // x in [-2*sqrt2, 2*sqrt2], y in [-sqrt2, sqrt2]
 }
 
-function colorGradientRGB(t){ // t in [-1,1] -> blue..white..red, contrast-boosted
-  t = Math.max(-1, Math.min(1, t));
-  const s = Math.sign(t) * Math.pow(Math.abs(t), 0.45);
-  if (s >= 0){
-    const g = Math.round(255*(1-s));
-    return [255, g, g];
-  } else {
-    const g = Math.round(255*(1+s));
-    return [g, g, 255];
+// Colormap "seismic" di matplotlib, riprodotta esattamente (valori RGB
+// campionati da matplotlib.colormaps['seismic']) — usata per la mappa a gradiente.
+const SEISMIC_STOPS = [
+  [0.00, 0,0,76], [0.25, 1,1,255], [0.50, 255,253,253], [0.75, 254,0,0], [1.00, 128,0,0]
+];
+function colorGradientRGB(t){ // t in [-1,1] -> colormap seismic
+  const x = Math.max(0, Math.min(1, (t+1)/2));
+  for (let i=0; i<SEISMIC_STOPS.length-1; i++){
+    const [x0,r0,g0,b0] = SEISMIC_STOPS[i];
+    const [x1,r1,g1,b1] = SEISMIC_STOPS[i+1];
+    if (x >= x0 && x <= x1){
+      const f = (x1===x0) ? 0 : (x-x0)/(x1-x0);
+      return [Math.round(r0+f*(r1-r0)), Math.round(g0+f*(g1-g0)), Math.round(b0+f*(b1-b0))];
+    }
   }
+  return [128,0,0];
 }
 function colorGradient(t){ const [r,g,b] = colorGradientRGB(t); return `rgb(${r},${g},${b})`; }
 
+// Colormap "RdBu_r" di matplotlib (valori esatti a x=0, 0.5, 1) — usata per
+// la mappa dei segni, che assume solo i valori -1, 0, +1 (np.sign).
 function colorSignRGB(v){
-  if (Math.abs(v) < 1e-12) return [255,255,255];
-  return v > 0 ? [255,60,60] : [60,90,255];
+  if (Math.abs(v) < 1e-12) return [247,246,246];
+  return v > 0 ? [103,0,31] : [5,48,97];
 }
 function colorSign(v){ const [r,g,b] = colorSignRGB(v); return `rgb(${r},${g},${b})`; }
 
@@ -644,14 +668,16 @@ function vecToAngles(v){
   return [theta, phi];
 }
 
-// Graticola (meridiani ogni 60°, paralleli ogni 30°) — riusata sia a schermo
-// che nell'export. "project" converte (theta,phi) in coordinate canvas.
+// Graticola (meridiani e paralleli ogni 30°, come hp.graticule(dpar=30,dmer=30))
+// — riusata sia a schermo che nell'export. "project" converte (theta,phi) in
+// coordinate canvas. Le etichette di longitudine compaiono solo ogni 60°,
+// vicino all'equatore; quelle di latitudine vicino al bordo sinistro (lon=179°).
 function drawGraticule(ctx, project, lineColor, labelColor, drawLabels, fontSize){
   ctx.save();
   ctx.strokeStyle = lineColor;
   ctx.lineWidth = 1.1;
   ctx.font = (fontSize||11) + 'px Arial, sans-serif';
-  for (let lonDeg=0; lonDeg<360; lonDeg+=60){
+  for (let lonDeg=0; lonDeg<360; lonDeg+=30){
     ctx.beginPath();
     let first = true;
     for (let latDeg=-89; latDeg<=89; latDeg+=2){
@@ -660,11 +686,6 @@ function drawGraticule(ctx, project, lineColor, labelColor, drawLabels, fontSize
       if (first){ ctx.moveTo(px,py); first=false; } else ctx.lineTo(px,py);
     }
     ctx.stroke();
-    if (drawLabels){
-      const [lx,ly]=project(Math.PI/2, lonDeg*Math.PI/180);
-      ctx.fillStyle=labelColor; ctx.textAlign='center';
-      ctx.fillText(lonDeg+'°', lx, ly-6);
-    }
   }
   for (let latDeg=-60; latDeg<=60; latDeg+=30){
     ctx.beginPath();
@@ -675,10 +696,19 @@ function drawGraticule(ctx, project, lineColor, labelColor, drawLabels, fontSize
       if (first){ ctx.moveTo(px,py); first=false; } else ctx.lineTo(px,py);
     }
     ctx.stroke();
-    if (drawLabels){
-      const [lx,ly]=project((90-latDeg)*Math.PI/180, 0.0001);
-      ctx.fillStyle=labelColor; ctx.textAlign='right';
-      ctx.fillText(latDeg+'°', lx-8, ly+4);
+  }
+  if (drawLabels){
+    // longitudine: ogni 60°, vicino all'equatore (lat=2°), centrato
+    for (let lonDeg=0; lonDeg<360; lonDeg+=60){
+      const [lx,ly] = project((90-2)*Math.PI/180, lonDeg*Math.PI/180);
+      ctx.fillStyle = labelColor; ctx.textAlign = 'center';
+      ctx.fillText(lonDeg+'°', lx, ly-4);
+    }
+    // latitudine: vicino al bordo sinistro (lon=179°), allineate a destra
+    for (const latDeg of [-60,-30,30,60]){
+      const [lx,ly] = project((90-latDeg)*Math.PI/180, 179*Math.PI/180);
+      ctx.fillStyle = labelColor; ctx.textAlign = 'right';
+      ctx.fillText(latDeg+'°', lx-6, ly+4);
     }
   }
   ctx.restore();
@@ -717,9 +747,9 @@ function drawHeatmap(canvas, thetas, phis, heatmap, mode, trianglePts, nside){
 
   if (trianglePts && trianglePts.length){
     const starR = Math.max(6, Math.round(W/70));
-    trianglePts.forEach(({theta, phi, label})=>{
+    trianglePts.forEach(({theta, phi, color, label})=>{
       const [px, py] = screenProject(theta, phi);
-      drawStar(ctx, px, py, starR, 'black', 'white');
+      drawStar(ctx, px, py, starR, color, 'black');
       if (label) drawHaloText(ctx, label, px + starR + 5, py + 4, 'left', Math.max(11, Math.round(W/85)));
     });
   }
@@ -776,9 +806,9 @@ function buildExportCanvas(thetas, phis, heatmap, mode, trianglePts, titleText, 
 
   if (trianglePts && trianglePts.length){
     const starR = Math.max(7, Math.round(mapW/70));
-    trianglePts.forEach(({theta, phi, label})=>{
+    trianglePts.forEach(({theta, phi, color, label})=>{
       const [px, py] = toCanvas(theta, phi);
-      drawStar(ctx, px, py, starR, 'black', 'white');
+      drawStar(ctx, px, py, starR, color, 'black');
       if (label) drawHaloText(ctx, label, px + starR + 6, py + 5, 'left', 14);
     });
   }
@@ -861,24 +891,24 @@ const legendSignMax = document.getElementById('legendSignMax');
 const downloadGradBtn = document.getElementById('downloadGrad');
 const downloadSignBtn = document.getElementById('downloadSign');
 const triLegend = document.getElementById('triLegend');
-const pointColors = ['#ff5c7a', '#5ec8ff', '#ffd25e'];
+const pointColors = ['#d62728', '#1f77b4', '#ffd700']; // matplotlib tab:red, tab:blue, gold
 const showTriChk = document.getElementById('showTrianglePts');
 
 let lastCompute = null;
 
 const plotTitleInput = document.getElementById('plotTitle');
 const plotTitleDisplay = document.getElementById('plotTitleDisplay');
-plotTitleInput.addEventListener('input', ()=>{ plotTitleDisplay.textContent = plotTitleInput.value || 'Spherical Triangle — Sky Map'; });
+plotTitleInput.addEventListener('input', ()=>{ plotTitleDisplay.textContent = plotTitleInput.value || 'Spherical Integrand'; });
 
 downloadGradBtn.addEventListener('click', ()=>{
   if (!lastCompute){ resultMeta.textContent = 'run the computation first'; return; }
-  const title = plotTitleInput.value || 'Spherical Triangle — Sky Map';
+  const title = plotTitleInput.value || 'Spherical Integrand';
   exportHeatmapPdf(lastCompute.thetas, lastCompute.phis, lastCompute.heatmap, 'grad', lastCompute.triPts,
     title, 'heatmap_gradient.pdf', downloadGradBtn, lastCompute.nside);
 });
 downloadSignBtn.addEventListener('click', ()=>{
   if (!lastCompute){ resultMeta.textContent = 'run the computation first'; return; }
-  const title = plotTitleInput.value || 'Spherical Triangle — Sky Map';
+  const title = plotTitleInput.value || 'Spherical Integrand';
   exportHeatmapPdf(lastCompute.thetas, lastCompute.phis, lastCompute.heatmap, 'sign', lastCompute.triPts,
     title, 'heatmap_sign.pdf', downloadSignBtn, lastCompute.nside);
 });
