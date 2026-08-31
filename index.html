@@ -761,7 +761,9 @@ function fmtExport(v){ return v.toExponential(3); }
 // Costruisce, su un canvas separato non collegato allo schermo, una versione
 // stampabile della mappa: sfondo bianco, graticola (meridiani/paralleli) con
 // etichette in gradi, e una legenda sulla barra colorata. La mappa a schermo
-// (scura) non viene toccata.
+// (scura) non viene toccata. Niente riquadro esterno attorno alla mappa e
+// niente scritte "Longitude"/"Latitude" (solo le etichette in gradi della
+// graticola, come nello script Python di riferimento).
 function buildExportCanvas(thetas, phis, heatmap, mode, trianglePts, titleText, nside){
   const W = 1400, H = 900;
   const canvas = document.createElement('canvas');
@@ -792,17 +794,10 @@ function buildExportCanvas(thetas, phis, heatmap, mode, trianglePts, titleText, 
   for (let i=0;i<heatmap.length;i++) maxAbs = Math.max(maxAbs, Math.abs(heatmap[i]));
   rasterizeHealpixMap(ctx, marginLeft, marginTop, mapW, mapH, heatmap, nside, mode, maxAbs, [255,255,255]);
 
-  // Graticola disegnata SOPRA i punti, ben marcata e con etichette in gradi.
-  drawGraticule(ctx, toCanvas, '#777', '#333', true, 13);
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#333';
-  ctx.font = '13px Arial, sans-serif';
-  ctx.fillText('Longitude φ (deg)', W/2, marginTop + mapH + 20);
-  ctx.save();
-  ctx.translate(20, marginTop + mapH/2);
-  ctx.rotate(-Math.PI/2);
-  ctx.fillText('Latitude (deg)', 0, 0);
-  ctx.restore();
+  // Graticola disegnata SOPRA i punti, in grigio semi-trasparente ed etichette
+  // in gradi (dpar=30, dmer=30, color grey, alpha 0.6 — come hp.graticule()
+  // nello script Python di riferimento).
+  drawGraticule(ctx, toCanvas, 'rgba(128,128,128,0.6)', '#333', true, 13);
 
   if (trianglePts && trianglePts.length){
     const starR = Math.max(7, Math.round(mapW/70));
@@ -812,10 +807,6 @@ function buildExportCanvas(thetas, phis, heatmap, mode, trianglePts, titleText, 
       if (label) drawHaloText(ctx, label, px + starR + 6, py + 5, 'left', 14);
     });
   }
-
-  ctx.strokeStyle = '#999';
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(marginLeft, marginTop, mapW, mapH);
 
   // Colorbar / legenda
   const cbX = marginLeft, cbY = H - 90, cbW = mapW, cbH = 22;
