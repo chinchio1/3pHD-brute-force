@@ -823,7 +823,7 @@ function buildExportCanvas(thetas, phis, heatmap, mode, trianglePts, titleText, 
     ctx.fillText(fmtExport(-maxAbs), cbX, cbY+cbH+18);
     ctx.textAlign = 'center';
     ctx.fillText('0', cbX+cbW/2, cbY+cbH+18);
-    ctx.fillText('Geometrical response (intensity gradient)', cbX+cbW/2, cbY-8);
+    ctx.fillText('Geometrical response intensity gradient', cbX+cbW/2, cbY-8);
     ctx.textAlign = 'right';
     ctx.fillText(fmtExport(maxAbs), cbX+cbW, cbY+cbH+18);
   } else {
